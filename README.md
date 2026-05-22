@@ -101,34 +101,48 @@ npm run eval       # eval LLM com 5 transcripts
 
 ---
 
-## Seed de dados (obrigatório antes do primeiro agendamento)
+## Seed de dados
 
-Via Supabase Studio (`https://supabase.com/dashboard/project/czqellcrtzhjvdirpgxe`) → SQL Editor:
+### Status atual (já aplicado em dev)
+- Empresa teste: `EMPRESA TESTE ALFA` (CNPJ `05435277000160`, codigo SOC `291130`)
+- Agenda teste: `teste carlos` #1463919 (PERIODICO + DEMISSIONAL, marcada `fallback=true`)
+- 528 slots de 5min (seg/ter/qui/sex 7:30-11:00; qua 7:30-11:00 + 13:30-17:30)
+
+### Pra produção — 6 agendas reais
+
+Cada agenda real recebe `cidade` OU `cnpj_empresa` OU `fallback=true`. Roteamento determinístico no Code node `LS - Select agendas`:
+
+| Agenda SOC | Coluna roteamento | Valor |
+|---|---|---|
+| New Life #2746781 | `cnpj_empresa` | CNPJ da empresa New Life |
+| Rede Credenciada #1929818 | `fallback` | `true` |
+| Unidade Foz do Iguaçu #1463906 | `cidade` | `Foz do Iguaçu` |
+| Unidade Londrina #1463660 | `cidade` | `Londrina` |
+| Unidade Medianeira #134153 | `cidade` | `Medianeira` |
+| Unidade Santa Helena #1463775 | `cidade` | `Santa Helena` |
+
+Exemplo (1 agenda real):
 
 ```sql
--- Empresa cliente (1 row)
-insert into empresas_cache (cnpj, codigo_empresa, razao_social, unidades, defaults_funcionario) values
-('12345678000190', 1317163, 'Empresa Teste LTDA',
- '[{"nome": "Santos"}, {"nome": "São Paulo"}]'::jsonb,
- '{"codigo_unidade_padrao": 1, "tipo_busca_unidade": "CODIGO",
-   "codigo_setor_padrao": 1, "tipo_busca_setor": "CODIGO",
-   "codigo_cargo_padrao": 1, "tipo_busca_cargo": "CODIGO",
-   "tipo_contratacao_default": "CLT", "regime_trabalho_default": "NORMAL",
-   "situacao_default": "ATIVO"}'::jsonb);
+insert into agendas_config (codigo_empresa_principal, unidade, tipo_compromisso, codigo_usuario_agenda, cidade, ativo) values
+(289501, 'Unidade Medianeira', 'PERIODICO',   134153, 'Medianeira', true),
+(289501, 'Unidade Medianeira', 'DEMISSIONAL', 134153, 'Medianeira', true);
 
--- Agenda config (1 row por empresa+unidade+tipo)
-insert into agendas_config (codigo_empresa_principal, unidade, tipo_compromisso, codigo_usuario_agenda, ativo) values
-(289501, 'Santos', 'PERIODICO', 99, true),
-(289501, 'Santos', 'DEMISSIONAL', 99, true);
+-- New Life (CNPJ a preencher)
+insert into agendas_config (codigo_empresa_principal, unidade, tipo_compromisso, codigo_usuario_agenda, cnpj_empresa, ativo) values
+(289501, 'New Life', 'PERIODICO',   2746781, '00000000000000', true),
+(289501, 'New Life', 'DEMISSIONAL', 2746781, '00000000000000', true);
 
--- Slots (horários disponíveis por dia da semana, 1=Domingo ... 7=Sábado)
-insert into slots_config (agenda_config_id, dia_semana, hora_inicial, ativo) values
-(1, 2, '09:00', true), (1, 2, '10:00', true), (1, 2, '11:00', true),
-(1, 3, '09:00', true), (1, 3, '10:00', true),
-(1, 4, '09:00', true), (1, 4, '14:00', true);
+-- Rede Credenciada (fallback)
+update agendas_config set fallback=false where unidade='teste carlos';  -- desliga test fallback
+insert into agendas_config (codigo_empresa_principal, unidade, tipo_compromisso, codigo_usuario_agenda, fallback, ativo) values
+(289501, 'Rede Credenciada', 'PERIODICO',   1929818, true, true),
+(289501, 'Rede Credenciada', 'DEMISSIONAL', 1929818, true, true);
+
+-- Slots em cada agenda nova (intervalo 5min ou outro, varia por agenda real)
 ```
 
-Ajustar valores ao SOC real da empresa antes de produção.
+Slots variam por agenda — coletar horários reais de cada cidade antes de seed.
 
 ---
 
