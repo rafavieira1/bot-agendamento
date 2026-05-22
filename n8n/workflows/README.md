@@ -134,7 +134,7 @@ WF5 - Cron Jobs (triggers independentes)
 |---|---|
 | `buscar_empresa` | Supabase getAll `empresas_cache` by cnpj → return found/miss |
 | `buscar_funcionario` | Supabase cache check + TTL 24h → miss: build XML probe + call WF3 + upsert |
-| `listar_slots` | Supabase: `agendas_config` + `slots_config` + `agendamentos` ocupados → merge → expand range |
+| `listar_slots` | Code routing (cnpj_empresa → cidade → fallback) resolve agenda → `slots_config` + ocupados → merge → expand range |
 | `agendar_no_soc` | Compute idempotency_key (sha1) → Supabase lookup → miss: build XML + call WF3 + insert |
 | `enviar_mensagem` | HTTP POST Meta `/messages` → insert mensagem papel=assistant |
 | `enviar_confirmacao` | HTTP Meta send + insert mensagem + update conversa.status=`aguardando_confirmacao` |
