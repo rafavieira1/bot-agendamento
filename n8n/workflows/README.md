@@ -85,7 +85,7 @@ WF5 - Cron Jobs (triggers independentes)
 1. Init iteration (default 0)
 2. Load conversa + mensagens (top 20)
 3. Build OpenAI request (system prompt restrito PERIODICO+DEMISSIONAL + history + tools)
-4. POST `https://api.openai.com/v1/chat/completions` (`gpt-4o-mini`, `parallel_tool_calls=false`)
+4. POST `https://api.openai.com/v1/chat/completions` (`gpt-4.1-mini`, `parallel_tool_calls=false`)
 5. Parse response (content + tool_call[0])
 6. Save assistant message
 7. IF has_tool_call AND iteration < 5:

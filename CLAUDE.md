@@ -2,7 +2,7 @@
 
 Bot WhatsApp para agendamento de exames ocupacionais via SOC SST. Inbound only — recebe mensagem do cliente, agente LLM coleta dados, agenda no SOC via SOAP.
 
-**Stack:** n8n (orquestração, self-hosted local + VPS futuro) + Supabase (Postgres + RLS) + Meta WhatsApp Cloud API + OpenAI (gpt-4o-mini, tool calling) + Node.js/Vitest (helpers testáveis colados em Code nodes).
+**Stack:** n8n (orquestração, self-hosted local + VPS futuro) + Supabase (Postgres + RLS) + Meta WhatsApp Cloud API + OpenAI (gpt-4.1-mini, tool calling) + Node.js/Vitest (helpers testáveis colados em Code nodes).
 
 ## Escopo (após amendment de 2026-05-21)
 
