@@ -35,7 +35,10 @@ export function buildIncluirAgendamento({ identificacao, dadosAgendamento }) {
       ${tag('horarioChegada', d.horarioChegada)}
       ${tag('horarioSaida', d.horarioSaida)}
       ${tag('priorizarAtendimento', d.priorizarAtendimento)}
+      ${tag('usaEnviarEmail', d.usaEnviarEmail)}
+      ${tag('usaEnviarSocms', d.usaEnviarSocms)}
       ${tag('codigoPrestador', d.codigoPrestador)}
+      ${tag('convocacaoAgendada', d.convocacaoAgendada)}
     </dadosAgendamentoWsVo>
   </IncluirAgendamentoWsVo>
 </ser:incluirAgendamento>`;

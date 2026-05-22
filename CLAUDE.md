@@ -125,6 +125,10 @@ start-n8n.ps1         # Inicia n8n local + ngrok + carrega .env
 
 9. **Roteamento agenda é do dispatcher, não do LLM:** prompt do WF2 instrui LLM a passar `cpf_funcionario` + `cidade` pra `listar_slots`/`agendar_no_soc`. Code node `LS - Select agendas` decide qual agenda usar. LLM **não** escolhe agenda.
 
+10. **Permissão SOC por agenda:** o usuário WS (U3604573) precisa ter permissão CONSULTAR+ALTERAR em **cada agenda** que o bot vai usar. Sem isso → SOC-312 "Cadastro de agenda não localizado" + SOC-355 + SOC-315. Em SOC web: cadastro agenda → seção "Acesso Agenda" → adicionar U3604573 em "Selecionados". Status atual: liberado em todas (teste + 6 reais).
+
+11. **Campos obrigatórios `incluirAgendamento`:** o WSDL marca 6 booleanos como required (sem `minOccurs="0"`): `reservarCompromissoParaEmpresa`, `usaOutroCompromisso`, `priorizarAtendimento`, `usaEnviarEmail`, `usaEnviarSocms`, `convocacaoAgendada`. Builder sempre emite com `false` por default. Também `codigoCompromisso='1'` (tipo "Agenda" do SOC) é obrigatório na prática — sem ele → SOC-315.
+
 ## Convenções
 
 - Migrations: `YYYYMMDD_NNNNNN_descricao.sql` em `supabase/migrations/`
@@ -153,6 +157,9 @@ start-n8n.ps1         # Inicia n8n local + ngrok + carrega .env
 - ✓ WF2 prompt: UX híbrido C + escopo oculto + roteamento via tool args
 - ✓ WF4 LS branch: roteamento determinístico cnpj_empresa → cidade → fallback
 - ✓ WF4 AG branch: mesmo roteamento dentro do `AG - Idempotency` (pega codigo_usuario_agenda da agenda escolhida antes do Build XML)
+- ✓ SOC ponta-a-ponta validado: CPF 70372002048 (Cleber) na EMPRESA TESTE ALFA → agenda teste carlos → 28/05/2026 08:00 PERIODICO → SOC-100 SUCESSO (script `scripts/test-soc.mjs`)
+- ✓ Builder `incluir-agendamento` emite todos campos obrigatórios + `codigoCompromisso='1'` default
+- ✓ Permissão U3604573 concedida em todas as agendas (teste + 6 reais)
 
 ## MCPs disponíveis (escopo project, .mcp.json)
 
