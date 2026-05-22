@@ -144,7 +144,7 @@ start-n8n.ps1         # Inicia n8n local + ngrok + carrega .env
 **Pra produção real (depois do teste):**
 4. Seed das 6 agendas reais em `agendas_config` (com `cidade` ou `cnpj_empresa` ou `fallback` conforme tabela acima) + slots cada
 5. CNPJ da empresa New Life pra preencher `cnpj_empresa` da agenda New Life
-6. Patch AG branch em WF4 (`AG - Build XML`) pra resolver agenda da mesma forma que LS faz — hoje pega só do fallback
+6. Desligar `fallback=true` da agenda teste antes de produção (`update agendas_config set fallback=false where unidade='teste carlos'`)
 
 **Concluído:**
 - ✓ Seed teste: empresa + agenda + 528 slots
@@ -152,6 +152,7 @@ start-n8n.ps1         # Inicia n8n local + ngrok + carrega .env
 - ✓ Migration 12 (agenda routing)
 - ✓ WF2 prompt: UX híbrido C + escopo oculto + roteamento via tool args
 - ✓ WF4 LS branch: roteamento determinístico cnpj_empresa → cidade → fallback
+- ✓ WF4 AG branch: mesmo roteamento dentro do `AG - Idempotency` (pega codigo_usuario_agenda da agenda escolhida antes do Build XML)
 
 ## MCPs disponíveis (escopo project, .mcp.json)
 
