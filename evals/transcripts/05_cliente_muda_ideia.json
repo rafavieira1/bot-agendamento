@@ -1,0 +1,30 @@
+{
+  "name": "cliente muda de ideia após confirmação",
+  "estado_inicial": {
+    "status": "aguardando_confirmacao",
+    "dados": {
+      "cnpj": "12345678000190",
+      "codigo_empresa_soc": 999,
+      "funcionarios": [
+        {
+          "cpf": "12345678900",
+          "tipo_exame": "PERIODICO",
+          "data_preferida": "02/06/2026",
+          "hora_preferida": "09:00",
+          "unidade_atendimento": "Santos"
+        }
+      ]
+    }
+  },
+  "turns": [
+    {
+      "user": "não, na verdade é dia 3 não dia 2",
+      "expected_action": "status volta para coletando, bot pergunta o que mudar/corrigir e envia nova confirmação",
+      "expected_status_after": "aguardando_confirmacao"
+    },
+    {
+      "user": "sim",
+      "expected_action": "agendamento_efetuado com data 03/06/2026"
+    }
+  ]
+}

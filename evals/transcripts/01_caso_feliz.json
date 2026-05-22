@@ -1,0 +1,19 @@
+{
+  "name": "caso feliz — funcionário existente, agenda direto",
+  "estado_inicial": {
+    "status": "coletando",
+    "dados": {}
+  },
+  "turns": [
+    {
+      "user": "Oi, quero marcar exame periódico do João Silva, CPF 123.456.789-00, CNPJ 12.345.678/0001-90, dia 2/6 às 9h em Santos.",
+      "expected_tools": ["buscar_empresa", "buscar_funcionario", "enviar_confirmacao"],
+      "expected_dados_keys": ["cnpj", "funcionarios"],
+      "expected_status_after": "aguardando_confirmacao"
+    },
+    {
+      "user": "sim",
+      "expected_action": "agendamento_efetuado"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "name": "bot-agendamentos",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "eval": "node evals/run-eval.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@vitest/ui": "^4.1.7",
+    "vitest": "^4.1.7"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.8.0"
+  }
+}

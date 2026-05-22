@@ -1,0 +1,23 @@
+{
+  "name": "múltiplos funcionários numa conversa",
+  "estado_inicial": {
+    "status": "coletando",
+    "dados": { "cnpj": "12345678000190", "codigo_empresa_soc": 999 }
+  },
+  "turns": [
+    {
+      "user": "Preciso marcar exame periódico de 2 pessoas: CPF 111.222.333-44 e CPF 555.666.777-88, ambos em Santos dia 5/6.",
+      "expected_tools": ["buscar_funcionario", "buscar_funcionario"],
+      "expected_outcome": "bot busca cada CPF separadamente e propõe horários consolidados"
+    },
+    {
+      "user": "9h e 9h30 está bom",
+      "expected_tools": ["enviar_confirmacao"],
+      "expected_outcome": "confirmação consolidada listando os 2 agendamentos"
+    },
+    {
+      "user": "sim",
+      "expected_action": "2 agendamentos efetuados"
+    }
+  ]
+}
