@@ -51,7 +51,7 @@ try {
 # --- 3. Iniciar n8n ---
 Write-Host "n8n: http://localhost:5678"
 $env:N8N_BLOCK_ENV_ACCESS_IN_NODE="false"
-$env:NODE_FUNCTION_ALLOW_BUILTIN="crypto,zlib"
+$env:NODE_FUNCTION_ALLOW_BUILTIN="crypto,zlib,https,http"
 $env:NODE_FUNCTION_ALLOW_EXTERNAL="fast-xml-parser"
 $env:META_HMAC_MODE="log_only"
 n8n

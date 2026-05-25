@@ -56,14 +56,22 @@ WF5 - Cron Jobs (triggers independentes)
 
 ### WF1 - Recebe Mensagem
 
-**Trigger:** Webhook Meta WhatsApp
-- POST `/webhook/wa-bot-c8a3f0d1-b9e4-4f12-8a7d-3e5c1b2f6a90` → mensagem entrante
-- GET no mesmo path → Meta handshake (`hub.challenge` verification)
+**Triggers:** 2 webhooks paralelos convergem em `Normalize Inbound` → mesmo pipeline downstream.
+- **Meta WhatsApp Cloud:** POST `/webhook/wa-bot-c8a3f0d1-b9e4-4f12-8a7d-3e5c1b2f6a90` (JSON) + GET (handshake `hub.challenge`)
+- **Avisa API:** POST `/webhook/wa-avisa-a7f3c2e8b4d6915af2c0e7b8d3a4f5c1` (form-urlencoded com `token` + `jsonData`)
 
-**Fluxo POST:**
+**Fluxo POST (Meta):**
 1. Respond 200 imediato (Meta exige < 5s)
 2. Verify HMAC X-Hub-Signature-256 (skip se `META_HMAC_MODE=log_only`)
-3. Extract message (filtra só text type)
+3. Extract Message (Meta) — filtra só text type → `{message_id, telefone, texto, timestamp}`
+4. → Normalize Inbound
+
+**Fluxo POST (Avisa):**
+1. Respond 200 imediato
+2. Parse Avisa — valida `body.token === $env.AVISA_TOKEN`, `JSON.parse(body.jsonData)`, extrai `event.Info.SenderAlt` + `event.Message.conversation`, skip se IsFromMe/IsGroup/non-Message
+3. → Normalize Inbound
+
+**Pipeline comum (após Normalize Inbound):**
 4. Allowlist check (skip se `WA_ALLOWLIST` vazio)
 5. Dedup via `mensagens_recebidas.message_id`
 6. Upsert `conversas` por telefone
@@ -73,7 +81,7 @@ WF5 - Cron Jobs (triggers independentes)
 10. IF status='aguardando_confirmacao' → detect confirmation (sim/não/ambíguo) → switch
 11. Call WF2 com hint apropriada
 
-**ID:** `o80iAlxgMjWBfher` · **Nodes:** 24
+**ID:** `o80iAlxgMjWBfher` · **Nodes:** 28
 
 ---
 
@@ -134,11 +142,11 @@ WF5 - Cron Jobs (triggers independentes)
 |---|---|
 | `buscar_empresa` | Supabase getAll `empresas_cache` by cnpj → return found/miss |
 | `buscar_funcionario` | Supabase cache check + TTL 24h → miss: build XML probe + call WF3 + upsert |
-| `listar_slots` | Code routing (cnpj_empresa → cidade → fallback) resolve agenda → `slots_config` + ocupados → merge → expand range |
-| `agendar_no_soc` | Compute idempotency_key (sha1) → Supabase lookup → miss: build XML + call WF3 + insert |
-| `enviar_mensagem` | HTTP POST Meta `/messages` → insert mensagem papel=assistant |
-| `enviar_confirmacao` | HTTP Meta send + insert mensagem + update conversa.status=`aguardando_confirmacao` |
-| `transferir_humano` | HTTP Meta send (texto fixo) + insert mensagem + insert notif p0 + update conversa.status=`transferido` |
+| `listar_slots` | Code routing (cnpj_empresa → cidade → fallback) resolve agenda → ExportaDadosWs "Horarios Livres da Agenda" como fonte principal → fallback `slots_config` se SOC indisponivel |
+| `agendar_no_soc` | Pre-check ExportaDadosWs para limpar cache local stale → compute idempotency_key (sha1) → Supabase lookup → miss: build XML + call WF3 + insert |
+| `enviar_mensagem` | HTTP POST switched by `$env.WA_PROVIDER` (Meta `/messages` ou Avisa `/actions/sendMessage`) → insert mensagem papel=assistant |
+| `enviar_confirmacao` | HTTP switched (Meta/Avisa) + insert mensagem + update conversa.status=`aguardando_confirmacao` |
+| `transferir_humano` | HTTP switched (Meta/Avisa, texto fixo) + insert mensagem + insert notif p0 + update conversa.status=`transferido` |
 | `notificar_safe` | Insert `notificacoes_pendentes` (tipo, prioridade, payload) |
 
 **ID:** `00kC3KB8q19KgCLp` · **Nodes:** 48
@@ -171,6 +179,18 @@ WF5 - Cron Jobs (triggers independentes)
 | `VyPnpzWM0Xljer9G` | OpenAI API | WF2 (também usa `$env.OPENAI_API_KEY` no HTTP node) |
 
 Tokens Meta (`META_ACCESS_TOKEN`, `META_PHONE_NUMBER_ID`, etc.) são lidos via `$env` direto nos HTTP nodes — não exigem credencial n8n separada.
+
+Para disponibilidade real de horarios, WF4 usa o Exporta Dados
+`SOC_EXPORTA_HORARIOS_LIVRES_CODIGO` +
+`SOC_EXPORTA_HORARIOS_LIVRES_CHAVE` ("Horarios Livres da Agenda") via SOAP
+`ExportaDadosWs`, porque esse relatorio tem `data`, `horario`, `codigoAgenda`
+e `statusAgenda`. Esse Exporta Dados tem Acesso Post = Nao, entao nao funciona
+via `WebSoc/exportadados`; precisa ser chamado pelo WebService.
+
+Antes do lookup idempotente em `agendar_no_soc`, WF4 consulta o mesmo relatorio.
+Se o SOC disser que o horario escolhido esta livre, qualquer agendamento local
+ativo naquele slot e marcado como `cancelado/sincronizado` para evitar cache
+stale depois de exclusao manual no SOC.
 
 ---
 
