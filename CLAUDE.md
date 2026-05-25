@@ -2,7 +2,9 @@
 
 Bot WhatsApp para agendamento de exames ocupacionais via SOC SST. Inbound only — recebe mensagem do cliente, agente LLM coleta dados, agenda no SOC via SOAP.
 
-**Stack:** n8n (orquestração, self-hosted local + VPS futuro) + Supabase (Postgres + RLS) + Meta WhatsApp Cloud API + OpenAI (gpt-4.1-mini, tool calling) + Node.js/Vitest (helpers testáveis colados em Code nodes).
+**Stack:** n8n (orquestração, self-hosted local + VPS futuro) + Supabase (Postgres + RLS) + WhatsApp (Meta Cloud API em prod, **Avisa API** não-oficial em dev/teste enquanto chip não chega) + OpenAI (gpt-4.1-mini, tool calling) + Node.js/Vitest (helpers testáveis colados em Code nodes).
+
+**Provider WhatsApp:** flag `WA_PROVIDER=avisa|meta` no `.env` controla onde WF1 entra e pra onde WF4 envia. Lado-a-lado — Meta continua plugado, só inativo até flag virar `meta`.
 
 ## Escopo (após amendment de 2026-05-21)
 
@@ -76,7 +78,10 @@ start-n8n.ps1         # Inicia n8n local + ngrok + carrega .env
 | `00kC3KB8q19KgCLp` | `[PROD-AGENDAMENTO] WF4 - Tool Dispatcher` | Switch sobre `tool_name` → 8 branches (todas tools inline) |
 | `HYNIIPAfFALivFtL` | `[PROD-AGENDAMENTO] WF5 - Cron Jobs` | monitor_alertas (10min) + retencao_lgpd (3h diário) |
 
-**Webhook Meta URL atual:** `https://wrecker-wisplike-detergent.ngrok-free.dev/webhook/wa-bot-c8a3f0d1-b9e4-4f12-8a7d-3e5c1b2f6a90` (ngrok grátis muda a cada restart — re-registrar no Meta Console quando trocar).
+**Webhook Meta URL:** `https://<ngrok>.ngrok-free.dev/webhook/wa-bot-c8a3f0d1-b9e4-4f12-8a7d-3e5c1b2f6a90` (Meta Cloud API).
+**Webhook Avisa URL:** `https://<ngrok>.ngrok-free.dev/webhook/wa-avisa-a7f3c2e8b4d6915af2c0e7b8d3a4f5c1` (não-oficial, dev/teste). Configurar no painel `https://www.avisaapi.com.br` ou via `POST {AVISA_BASE_URL}/webhook` body `{"webhook":"<URL>"}`.
+
+Ngrok grátis muda a cada restart — re-registrar a URL no provider ativo quando trocar.
 
 ## Comandos
 
@@ -128,6 +133,14 @@ start-n8n.ps1         # Inicia n8n local + ngrok + carrega .env
 10. **Permissão SOC por agenda:** o usuário WS (U3604573) precisa ter permissão CONSULTAR+ALTERAR em **cada agenda** que o bot vai usar. Sem isso → SOC-312 "Cadastro de agenda não localizado" + SOC-355 + SOC-315. Em SOC web: cadastro agenda → seção "Acesso Agenda" → adicionar U3604573 em "Selecionados". Status atual: liberado em todas (teste + 6 reais).
 
 11. **Campos obrigatórios `incluirAgendamento`:** o WSDL marca 6 booleanos como required (sem `minOccurs="0"`): `reservarCompromissoParaEmpresa`, `usaOutroCompromisso`, `priorizarAtendimento`, `usaEnviarEmail`, `usaEnviarSocms`, `convocacaoAgendada`. Builder sempre emite com `false` por default. Também `codigoCompromisso='1'` (tipo "Agenda" do SOC) é obrigatório na prática — sem ele → SOC-315.
+
+12. **Avisa API webhook é `application/x-www-form-urlencoded`** (NÃO JSON). Body chega com `token=<...>` + `jsonData=<JSON urlencoded>`. No n8n o webhook node entrega como `$('Webhook (Avisa)').first().json.body` com os dois campos. Parser precisa `JSON.parse(body.jsonData)`.
+
+13. **Avisa auth do webhook = comparar `body.token` com `$env.AVISA_TOKEN`** (sem HMAC). Defesa em profundidade: path do webhook tem secret aleatório (`/wa-avisa-<AVISA_WEBHOOK_SECRET>`).
+
+14. **Avisa shape entrante:** telefone real está em `event.Info.SenderAlt` (formato `5519992279989@s.whatsapp.net`) — `Sender`/`Chat` é LID interno (`@lid`) e NÃO bate com o número. Texto: `event.Message.conversation` (msg simples) ou `event.Message.extendedTextMessage.text` (com formatação). Skip se `IsFromMe`, `IsGroup`, ou `event.type !== 'Message'`.
+
+15. **Avisa API é não-oficial → risco de ban WhatsApp.** Usar SÓ em dev/teste. Em produção real, flag `WA_PROVIDER=meta` quando chip Meta chegar. Rate limit Avisa: 240 req/min.
 
 ## Convenções
 
