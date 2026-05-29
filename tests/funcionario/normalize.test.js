@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeSexo, normalizeUf, stripDigits } from '../../src/funcionario/normalize.js';
+import { normalizeSexo, normalizeUf, stripDigits, normalizeEstadoCivil } from '../../src/funcionario/normalize.js';
 
 describe('normalizeSexo', () => {
   it('mapeia variações para enum SOC', () => {
@@ -31,5 +31,20 @@ describe('stripDigits', () => {
   it('mantém só dígitos', () => {
     expect(stripDigits('123.456.789-00')).toBe('12345678900');
     expect(stripDigits(' 05.435.277/0001-60 ')).toBe('05435277000160');
+  });
+});
+
+describe('normalizeEstadoCivil', () => {
+  it('mapeia variações para enum SOC (tolerante a acento/gênero)', () => {
+    expect(normalizeEstadoCivil('solteiro')).toBe('SOLTEIRO');
+    expect(normalizeEstadoCivil('Casada')).toBe('CASADO');
+    expect(normalizeEstadoCivil('viúvo')).toBe('VIUVO');
+    expect(normalizeEstadoCivil('Divorciada')).toBe('DIVORCIADO');
+    expect(normalizeEstadoCivil('união estável')).toBe('UNIAO_ESTAVEL');
+    expect(normalizeEstadoCivil('  Separado ')).toBe('SEPARADO');
+  });
+  it('retorna null quando não reconhece', () => {
+    expect(normalizeEstadoCivil('sei lá')).toBeNull();
+    expect(normalizeEstadoCivil('')).toBeNull();
   });
 });

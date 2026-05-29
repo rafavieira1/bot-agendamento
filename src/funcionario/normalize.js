@@ -15,3 +15,30 @@ export function normalizeUf(v) {
 export function stripDigits(v) {
   return String(v ?? '').replace(/\D/g, '');
 }
+
+function deburr(v) {
+  return Array.from(String(v ?? '').normalize('NFD'))
+    .filter((ch) => {
+      const c = ch.codePointAt(0);
+      return c < 0x300 || c > 0x36f;
+    })
+    .join('')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+const ESTADO_CIVIL = {
+  solteiro: 'SOLTEIRO', solteira: 'SOLTEIRO',
+  casado: 'CASADO', casada: 'CASADO',
+  separado: 'SEPARADO', separada: 'SEPARADO',
+  divorciado: 'DIVORCIADO', divorciada: 'DIVORCIADO',
+  viuvo: 'VIUVO', viuva: 'VIUVO',
+  desquitado: 'DESQUITADO', desquitada: 'DESQUITADO',
+  'uniao estavel': 'UNIAO_ESTAVEL',
+  outro: 'OUTROS', outros: 'OUTROS',
+};
+
+export function normalizeEstadoCivil(v) {
+  return ESTADO_CIVIL[deburr(v)] || null;
+}
