@@ -48,6 +48,11 @@ Esta pasta serve como referência conceitual. Os workflows **vivem dentro do n8n
 WF5 - Cron Jobs (triggers independentes)
    • Schedule a cada 10min → monitor alertas (bucket A errors + SLA breach)
    • Schedule diário 03:00 → anonimização LGPD via RPC
+
+WF6 - Painel Send (criado, ID TNlcBTIFd2Al3joA, INATIVO por default)
+   • POST /webhook/painel-send-<PAINEL_SECRET>
+   • Valida JWT Supabase, confere responsavel_id == conversa.responsavel_id
+   • Manda via Avisa/Meta (WA_PROVIDER) + grava mensagens(papel='humano')
 ```
 
 ---
