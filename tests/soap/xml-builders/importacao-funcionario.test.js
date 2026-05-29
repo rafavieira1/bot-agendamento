@@ -92,6 +92,7 @@ describe('buildImportacaoFuncionario — admissional', () => {
       cpf: '70372002048', nomeFuncionario: 'Cleber Teste', dataNascimento: '01/01/1990',
       sexo: 'MASCULINO', dataAdmissao: '01/06/2026',
       nrCtps: '1234567', serieCtps: '001', ufCtps: 'PR', naoPossuiMatricula: true,
+      tipoContratacao: 'CLT', estadoCivil: 'SOLTEIRO', codigoCategoriaESocial: 101,
     },
     unidade: { nome: 'Safe T', tipoBusca: 'NOME' },
     setor: { nome: 'ADMINISTRAÇÃO', tipoBusca: 'NOME' },
@@ -104,6 +105,13 @@ describe('buildImportacaoFuncionario — admissional', () => {
     expect(xml).toContain('<serieCtps>001</serieCtps>');
     expect(xml).toContain('<ufCtps>PR</ufCtps>');
     expect(xml).toContain('<naoPossuiMatricula>true</naoPossuiMatricula>');
+  });
+
+  it('emite campos exigidos pelo SOC no runtime (tipoContratacao, estadoCivil, codigoCategoriaESocial)', () => {
+    const xml = buildImportacaoFuncionario(base);
+    expect(xml).toContain('<tipoContratacao>CLT</tipoContratacao>');
+    expect(xml).toContain('<estadoCivil>SOLTEIRO</estadoCivil>');
+    expect(xml).toContain('<codigoCategoriaESocial>101</codigoCategoriaESocial>');
   });
 
   it('emite hierarquia por NOME', () => {

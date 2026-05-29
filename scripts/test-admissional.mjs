@@ -35,7 +35,9 @@ async function fetchHierarquia(env, codigoEmpresa) {
   const parametro = JSON.stringify({ empresa: String(codigoEmpresa), codigo: env.SOC_EXPORTA_HIERARQUIA_CODIGO, chave: env.SOC_EXPORTA_HIERARQUIA_CHAVE, tipoSaida: 'json' });
   const url = 'https://ws1.soc.com.br/WebSoc/exportadados?parametro=' + encodeURIComponent(parametro);
   const r = await fetch(url);
-  return JSON.parse(await r.text());
+  // SOC exportadados responde em ISO-8859-1 (latin1), não UTF-8 — decodificar certo senão acentos quebram o match
+  const buf = Buffer.from(await r.arrayBuffer());
+  return JSON.parse(buf.toString('latin1'));
 }
 
 async function main() {
@@ -62,6 +64,9 @@ async function main() {
       codigoEmpresa: String(codigoEmpresa), tipoBuscaEmpresa: 'CODIGO_SOC', chaveProcuraFuncionario: 'CPF',
       cpf, nomeFuncionario: 'TESTE ADMISSIONAL BOT', dataNascimento: '01/01/1990',
       sexo: 'MASCULINO', dataAdmissao: data, naoPossuiMatricula: true,
+      // defaults da empresa (empresas_cache.defaults_funcionario) — SOC exige no runtime
+      regimeTrabalho: 'NORMAL', tipoContratacao: 'CLT', situacao: 'ATIVO', estadoCivil: 'SOLTEIRO',
+      codigoCategoriaESocial: 101, // eSocial: 101 = Empregado CLT geral
     },
     unidade: { nome: hier.unidade_canonica, tipoBusca: 'NOME' },
     setor: { nome: hier.setor_canonico, tipoBusca: 'NOME' },
@@ -77,7 +82,7 @@ async function main() {
     identificacao: ident,
     dadosAgendamento: {
       tipoBuscaEmpresa: 'CODIGO_SOC', codigoEmpresa: String(codigoEmpresa),
-      tipoBuscaFuncionario: 'CPF', codigoFuncionario: cpf,
+      tipoBuscaFuncionario: 'CPF_ATIVO', codigoFuncionario: cpf,
       codigoUsuarioAgenda: String(codigoUsuarioAgenda),
       data, horaInicial: hora, tipoCompromisso: 'ADMISSIONAL', codigoCompromisso: '1',
       reservarCompromissoParaEmpresa: false, usaOutroCompromisso: false, priorizarAtendimento: false,

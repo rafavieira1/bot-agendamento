@@ -102,6 +102,7 @@ export function buildImportacaoFuncionario({
       ${tag('regimeTrabalho', funcionario.regimeTrabalho)}
       ${tag('tipoContratacao', funcionario.tipoContratacao)}
       ${tag('situacao', funcionario.situacao)}
+      ${tag('codigoCategoriaESocial', funcionario.codigoCategoriaESocial)}
       ${tag('nrCtps', funcionario.nrCtps)}
       ${tag('serieCtps', funcionario.serieCtps)}
       ${tag('dataEmissaoCtps', funcionario.dataEmissaoCtps)}
