@@ -5,6 +5,45 @@ function tag(name, value) {
   return `<${name}>${xmlEscape(value)}</${name}>`;
 }
 
+// bloco usado para UNIDADE (funcionarioUnidadeWsVo): sem boolean required
+function unidadeBlock(data) {
+  if (!data) return '';
+  return `<unidadeWsVo>
+  ${tag('codigo', data.codigo)}
+  ${tag('codigoRh', data.codigoRh)}
+  ${tag('nome', data.nome)}
+  ${tag('tipoBusca', data.tipoBusca)}
+</unidadeWsVo>`;
+}
+
+// setorWsVo exige criarHistoricoDescricao (boolean required no WSDL)
+function setorBlock(data) {
+  if (!data) return '';
+  return `<setorWsVo>
+  ${tag('codigo', data.codigo)}
+  ${tag('codigoRh', data.codigoRh)}
+  ${tag('nome', data.nome)}
+  ${tag('tipoBusca', data.tipoBusca)}
+  <criarHistoricoDescricao>${data.criarHistoricoDescricao === true ? 'true' : 'false'}</criarHistoricoDescricao>
+</setorWsVo>`;
+}
+
+// cargoWsVo (funcionarioCargoWsVo) exige criarHistoricoDescricao +
+// atualizaDescricaoRequisitosCargoPeloCbo (booleans required), aceita cbo
+function cargoBlock(data) {
+  if (!data) return '';
+  return `<cargoWsVo>
+  ${tag('codigo', data.codigo)}
+  ${tag('codigoRh', data.codigoRh)}
+  ${tag('nome', data.nome)}
+  ${tag('cbo', data.cbo)}
+  ${tag('tipoBusca', data.tipoBusca)}
+  <criarHistoricoDescricao>${data.criarHistoricoDescricao === true ? 'true' : 'false'}</criarHistoricoDescricao>
+  <atualizaDescricaoRequisitosCargoPeloCbo>${data.atualizaDescricaoRequisitosCargoPeloCbo === true ? 'true' : 'false'}</atualizaDescricaoRequisitosCargoPeloCbo>
+</cargoWsVo>`;
+}
+
+// genérico para centroCusto/motivoLicenca/turno (mantém compat)
 function hierarquia(name, data) {
   if (!data) return '';
   return `<${name}>
@@ -25,7 +64,6 @@ export function buildImportacaoFuncionario({
   centroCusto,
   motivoLicenca,
   turno,
-  deficiencia,
 }) {
   return `<ser:importacaoFuncionario>
   <Funcionario>
@@ -54,6 +92,7 @@ export function buildImportacaoFuncionario({
       ${tag('codigo', funcionario.codigo)}
       ${tag('matricula', funcionario.matricula)}
       ${tag('matriculaRh', funcionario.matriculaRh)}
+      ${tag('naoPossuiMatricula', funcionario.naoPossuiMatricula)}
       ${tag('cpf', funcionario.cpf)}
       ${tag('nomeFuncionario', funcionario.nomeFuncionario)}
       ${tag('dataNascimento', funcionario.dataNascimento)}
@@ -63,13 +102,18 @@ export function buildImportacaoFuncionario({
       ${tag('regimeTrabalho', funcionario.regimeTrabalho)}
       ${tag('tipoContratacao', funcionario.tipoContratacao)}
       ${tag('situacao', funcionario.situacao)}
+      ${tag('nrCtps', funcionario.nrCtps)}
+      ${tag('serieCtps', funcionario.serieCtps)}
+      ${tag('dataEmissaoCtps', funcionario.dataEmissaoCtps)}
+      ${tag('ufCtps', funcionario.ufCtps)}
+      ${tag('naoPossuiCtps', funcionario.naoPossuiCtps)}
       ${tag('funcao', funcionario.funcao)}
       ${tag('email', funcionario.email)}
       ${tag('telefoneCelular', funcionario.telefoneCelular)}
     </funcionarioWsVo>
-    ${hierarquia('unidadeWsVo', unidade)}
-    ${hierarquia('setorWsVo', setor)}
-    ${hierarquia('cargoWsVo', cargo)}
+    ${unidadeBlock(unidade)}
+    ${setorBlock(setor)}
+    ${cargoBlock(cargo)}
     ${hierarquia('centroCustoWsVo', centroCusto)}
     ${hierarquia('motivoLicencaWsVo', motivoLicenca)}
     ${hierarquia('turnoWsVo', turno)}

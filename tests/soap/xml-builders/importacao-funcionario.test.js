@@ -82,3 +82,47 @@ describe('buildImportacaoFuncionario', () => {
     expect(xml).toContain('<nomeFuncionario>Maria &amp; José</nomeFuncionario>');
   });
 });
+
+describe('buildImportacaoFuncionario — admissional', () => {
+  const base = {
+    identificacao: { codigoEmpresaPrincipal: 1, codigoResponsavel: 2, codigoUsuario: 'U3' },
+    flags: { criarFuncionario: true, criarSetor: false, criarCargo: false, criarUnidade: false },
+    funcionario: {
+      codigoEmpresa: '291130', tipoBuscaEmpresa: 'CODIGO_SOC', chaveProcuraFuncionario: 'CPF',
+      cpf: '70372002048', nomeFuncionario: 'Cleber Teste', dataNascimento: '01/01/1990',
+      sexo: 'MASCULINO', dataAdmissao: '01/06/2026',
+      nrCtps: '1234567', serieCtps: '001', ufCtps: 'PR', naoPossuiMatricula: true,
+    },
+    unidade: { nome: 'Safe T', tipoBusca: 'NOME' },
+    setor: { nome: 'ADMINISTRAÇÃO', tipoBusca: 'NOME' },
+    cargo: { nome: 'MOTORISTA', tipoBusca: 'NOME', cbo: '7825.10' },
+  };
+
+  it('emite CTPS e naoPossuiMatricula', () => {
+    const xml = buildImportacaoFuncionario(base);
+    expect(xml).toContain('<nrCtps>1234567</nrCtps>');
+    expect(xml).toContain('<serieCtps>001</serieCtps>');
+    expect(xml).toContain('<ufCtps>PR</ufCtps>');
+    expect(xml).toContain('<naoPossuiMatricula>true</naoPossuiMatricula>');
+  });
+
+  it('emite hierarquia por NOME', () => {
+    const xml = buildImportacaoFuncionario(base);
+    expect(xml).toMatch(/<unidadeWsVo>[\s\S]*<nome>Safe T<\/nome>[\s\S]*<tipoBusca>NOME<\/tipoBusca>[\s\S]*<\/unidadeWsVo>/);
+    expect(xml).toMatch(/<setorWsVo>[\s\S]*<nome>ADMINISTRAÇÃO<\/nome>[\s\S]*<tipoBusca>NOME<\/tipoBusca>[\s\S]*<\/setorWsVo>/);
+    expect(xml).toMatch(/<cargoWsVo>[\s\S]*<nome>MOTORISTA<\/nome>[\s\S]*<tipoBusca>NOME<\/tipoBusca>[\s\S]*<\/cargoWsVo>/);
+  });
+
+  it('emite booleans required dos blocos hierarquia + cbo no cargo', () => {
+    const xml = buildImportacaoFuncionario(base);
+    expect(xml).toMatch(/<setorWsVo>[\s\S]*<criarHistoricoDescricao>false<\/criarHistoricoDescricao>[\s\S]*<\/setorWsVo>/);
+    expect(xml).toMatch(/<cargoWsVo>[\s\S]*<cbo>7825.10<\/cbo>[\s\S]*<\/cargoWsVo>/);
+    expect(xml).toMatch(/<cargoWsVo>[\s\S]*<criarHistoricoDescricao>false<\/criarHistoricoDescricao>[\s\S]*<\/cargoWsVo>/);
+    expect(xml).toMatch(/<cargoWsVo>[\s\S]*<atualizaDescricaoRequisitosCargoPeloCbo>false<\/atualizaDescricaoRequisitosCargoPeloCbo>[\s\S]*<\/cargoWsVo>/);
+  });
+
+  it('omite dataEmissaoCtps quando não informado', () => {
+    const xml = buildImportacaoFuncionario(base);
+    expect(xml).not.toContain('<dataEmissaoCtps>');
+  });
+});
