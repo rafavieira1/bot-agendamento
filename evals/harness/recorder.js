@@ -14,7 +14,7 @@ export function createRecorder(rootDir) {
     writeScenario(nome, run, log, outcome, result, turns) {
       const base = `${nome}${run ? '_run' + run : ''}`;
       // markdown legível
-      const lines = [`# ${nome} (run ${run})`, '', `**Outcome:** ${outcome} · **Pass:** ${result.pass}`, ''];
+      const lines = [`# ${nome} (run ${run})`, '', `**Outcome:** ${outcome.derived} · **Pass:** ${result.pass}`, ''];
       for (const ev of log) {
         if (ev.kind === 'visible') lines.push(`${ev.who === 'cliente' ? '👤 Cliente' : '🤖 Bot'}: ${ev.text}`, '');
         else if (ev.kind === 'tool_call') lines.push(`🔧 \`${ev.tool}\` args: \`${JSON.stringify(ev.args)}\``);
@@ -22,11 +22,13 @@ export function createRecorder(rootDir) {
       }
       if (!result.pass) lines.push('', '## Falhas', ...result.falhas.map((f) => `- ${f}`));
       writeFileSync(path.join(dir, `${base}.md`), lines.join('\n'));
-      // json máquina
-      writeFileSync(path.join(dir, `${base}.json`), JSON.stringify({ nome, run, outcome, result, log }, null, 2));
-      // linha no summary
+      // json máquina (Set não serializa — espalha toolsCalled pra array)
+      const outcomeJson = { ...outcome, toolsCalled: [...(outcome.toolsCalled || [])] };
+      writeFileSync(path.join(dir, `${base}.json`), JSON.stringify({ nome, run, outcome: outcomeJson, result, log }, null, 2));
+      // linha no summary (escapa | das falhas pra não quebrar a coluna da tabela)
       const tools = [...(outcome.toolsCalled || [])].join(', ');
-      appendFileSync(summaryPath, `| ${nome} | ${run} | ${result.pass ? '✅' : '❌'} | ${outcome.derived} | ${tools} | ${turns} | ${result.falhas.join('; ')} |\n`);
+      const falhas = result.falhas.map((f) => f.replace(/\|/g, '\\|')).join('; ');
+      appendFileSync(summaryPath, `| ${nome} | ${run} | ${result.pass ? '✅' : '❌'} | ${outcome.derived} | ${tools} | ${turns} | ${falhas} |\n`);
     },
   };
 }
