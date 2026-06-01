@@ -81,22 +81,30 @@ atualize o módulo `src/` correspondente e rode `npm test`:
    por determinismo. Override por cenário: `mocks.listar_slots.slots`.
 4. Cliente LLM é não-determinístico → use `--repeat` para medir flakiness.
 
-## Achados da 1ª bateria (2026-06-01) — bugs reais que o harness pegou
+## Achados (2026-06-01) — o que o harness pegou
 
-Rodada inicial: **9/11**. Os 2 fails são do fluxo ADMISSIONAL e são **flaky** (passam às vezes:
-cenário 03 = 2/3, cenário 10 = 1/3). Causas reais, não bug do harness:
+Rodadas (single-run bouncam por causa do cliente LLM; use `--repeat` pra medir). O harness
+revelou fragilidade **real** do agente sob a lógica atual do WF2:
 
-1. **`forceListarSlots` dispara errado no admissional.** O bloco PESSOAL contém "data de
-   admissão" e o pedido do bot por esse bloco contém "data" → a heurística (`iteration===0 &&
-   status==='coletando' && looksLikeDateAnswer && previousAskedForDate`) força `listar_slots`
-   ANTES de coletar unidade/setor/cargo. O bot então chama `validar_hierarquia` com lixo (a
-   cidade nos 3 campos) → `valido:false` → transfere. **Existe no WF2 de prod** (o harness porta
-   a heurística fiel). Fix pendente (Phase 0): a heurística não deve disparar no fluxo admissional
-   antes da hierarquia — corrigir em `build-request.js` + WF2 juntos.
-2. **LLM às vezes chama tool prematuramente / com arg vazio** (ex: `buscar_empresa` com
-   `cnpj:""` logo após a cidade, antes de pedir o CNPJ). Não-determinístico. Mitigação possível:
-   reforçar o prompt; medir com `--repeat`.
+1. **`forceListarSlots` disparava errado no admissional — CORRIGIDO.** O bloco PESSOAL contém
+   "data de admissão" e o pedido do bot por ele contém "data" → a heurística forçava
+   `listar_slots` antes de coletar unidade/setor/cargo → `validar_hierarquia` com lixo (cidade nos
+   3 campos) → transferia. **Fix aplicado** em `src/llm/build-request.js` + WF2: só força se o
+   histórico já tem `buscar_funcionario` OU `validar_hierarquia` (o passo da data só vem depois de
+   um deles). Confirmado: não força mais prematuramente.
 
-O caminho admissional feliz e o erro_soc funcionam quando o bot se comporta (passam em parte das
-runs) — a fragilidade é do agente sob a lógica atual do WF2, exatamente o que o harness existe
-pra revelar.
+Pendentes (achados reais, ainda não corrigidos — priorize via harness):
+
+2. **Detector de confirmação (WF1) é estrito demais.** Cliente confirmando com frase natural
+   ("Perfeito, obrigado!", "pode marcar sim") cai em `ambiguous` → bot NÃO dispara
+   `agendar_no_soc`, fica em `em_andamento`. Regex âncorada só casa positivos curtos exatos.
+   UX gap real em prod.
+3. **Agente às vezes roda o fluxo PERIODICO para um pedido ADMISSIONAL** (chama
+   `buscar_funcionario` + `tipo_compromisso:PERIODICO` em vez de `validar_hierarquia`/
+   `cadastrar_funcionario`). Classificação de tipo não-determinística.
+4. **LLM às vezes chama tool prematuramente / com arg vazio** (ex: `buscar_empresa` com
+   `cnpj:""` antes de pedir o CNPJ).
+
+Parte da variação vem do cliente LLM (fraseado), parte é fragilidade genuína do agente —
+exatamente o que o harness existe pra expor sem testar 10× na mão. Cada item acima é um fix
+candidato que você valida re-rodando o cenário com `--repeat`.
