@@ -1,0 +1,20 @@
+{
+  "name": "admissional — setor/cargo não existe na hierarquia: transferência silenciosa",
+  "estado_inicial": {
+    "status": "coletando",
+    "dados": { "cidade": "Medianeira", "cnpj": "05435277000160", "codigo_empresa": 291130, "tipo_compromisso": "ADMISSIONAL" }
+  },
+  "turns": [
+    {
+      "user": "CPF 577.825.540-39, João Teste, nascimento 10/10/1990, masculino, casado, sem CTPS, admissão 01/07/2026",
+      "expected_tools": [],
+      "expected_outcome": "bot pede unidade, setor e cargo"
+    },
+    {
+      "user": "unidade Safe T, setor inexistente, cargo astronauta",
+      "expected_tools": ["validar_hierarquia", "transferir_humano"],
+      "expected_status_after": "transferido",
+      "expected_outcome": "validar_hierarquia valido=false -> transferir_humano motivo=hierarquia_nao_encontrada; mensagem ao cliente é a padrão silenciosa (NÃO explica que setor/cargo não existe)"
+    }
+  ]
+}
