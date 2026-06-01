@@ -55,7 +55,11 @@ export function buildRequest({ conversa, mensagens, hint = '', iteration = 0, ho
   }
   const looksLikeDateAnswer = /\b(segunda|terca|ter[çc]a|quarta|quinta|sexta|sabado|s[áa]bado|domingo|amanha|amanh[ãa]|hoje|depois de amanha|depois de amanh[ãa])\b|\b\d{1,2}[\/.-]\d{1,2}(?:[\/.-]\d{2,4})?\b/.test(latestUserText);
   const previousAskedForDate = /\b(data|dia|quando)\b/.test(prevAssistantText);
-  const forceListarSlots = iteration === 0 && c.status === 'coletando' && looksLikeDateAnswer && previousAskedForDate;
+  // o passo da data so vem DEPOIS de buscar_funcionario (periodico/demissional) ou validar_hierarquia
+  // (admissional). Sem um desses no historico, uma data no texto e de outro campo (ex: data de
+  // admissao no bloco pessoal) — nao pode forcar listar_slots prematuramente.
+  const prerequisiteMet = msgs.some((m) => m.papel === 'assistant' && (m.tool_name === 'buscar_funcionario' || m.tool_name === 'validar_hierarquia'));
+  const forceListarSlots = iteration === 0 && c.status === 'coletando' && looksLikeDateAnswer && previousAskedForDate && prerequisiteMet;
   const tool_choice = forceListarSlots ? { type: 'function', function: { name: 'listar_slots' } } : 'auto';
 
   return {
