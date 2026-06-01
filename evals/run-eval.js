@@ -35,7 +35,7 @@ async function loadScenarios(only) {
   return scenarios;
 }
 
-async function runScenario(cenario, env, recorder, run) {
+async function runScenario(cenario, env, recorder, run, doAssert = true) {
   const session = createSession({ telefone: '5519999990000', status: 'coletando' });
   const log = [];
   const outcome = { toolsCalled: new Set(), agendamento_efetuado: false, transferido: false, handoff_motivo: null };
@@ -66,7 +66,7 @@ async function runScenario(cenario, env, recorder, run) {
   }
 
   outcome.derived = deriveOutcome(outcome);
-  const result = cenario.espera ? runAssertions(cenario, outcome) : { pass: true, falhas: [] };
+  const result = (doAssert && cenario.espera) ? runAssertions(cenario, outcome) : { pass: true, falhas: [] };
   recorder.writeScenario(cenario.nome, run, log, outcome, result, turns);
   return result.pass;
 }
@@ -81,11 +81,11 @@ async function main() {
   for (const cenario of scenarios) {
     for (let run = 1; run <= opts.repeat; run++) {
       try {
-        const ok = await runScenario(cenario, env, recorder, run);
+        const ok = await runScenario(cenario, env, recorder, run, opts.assert);
         if (ok) { pass++; console.log(`PASS ${cenario.nome} (run ${run})`); }
         else { fail++; console.log(`FAIL ${cenario.nome} (run ${run})`); }
       } catch (e) {
-        fail++; console.log(`ERROR ${cenario.nome} (run ${run}): ${e.message}`);
+        fail++; console.log(`ERROR ${cenario.nome} (run ${run}): ${e.message}\n${e.stack || ''}`);
       }
     }
   }
