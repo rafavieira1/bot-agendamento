@@ -289,6 +289,14 @@ Spec validada inspecionando os Code nodes reais via n8n-mcp (`get_workflow` em
    nenhum dos dois (`"sim!"`→ambiguous em prod). "Import direto = zero drift" era falso.
 3. **`n8n/workflows/README.md` stale:** dizia 7 tools e `cadastrar_funcionario` removida.
 
+**Resolução dos drifts (decidido 2026-06-01) — direção da Tarefa 0:**
+1. Ordem de abertura canônica = **Cidade → CNPJ → Tipo de exame**. Reconciliar o WF2 pra a
+   resposta afirmativa começar pedindo a **CIDADE** (alinha com `src/llm/system-prompt.js`).
+2. `src/confirmation/detect.js` é **canônico**; alinhar o regex inline do WF1 a ele (remover
+   pontuação final antes de casar + aceitar 👍/✅). **Muda prod (WF1)** — escolha por robustez
+   com o cliente real.
+3. Atualizar o `n8n/workflows/README.md` (10 tools, `cadastrar_funcionario` presente).
+
 ### Correções aplicadas: C1 (listar_slots), C2 (buscar_funcionario não é read puro),
 C3 (agenda-routing real), C4 (outcome enum ≠ `conversas.status`), C5 (replicar switch WF1 +
 reconciliar detect.js), C6 (invariante obrigatório + Tarefa 0 de reconciliação de drift).
