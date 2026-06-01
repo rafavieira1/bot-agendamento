@@ -3,7 +3,15 @@ import { chat } from './openai.js';
 import { dispatchTool, TERMINAL_TOOLS } from './tools/index.js';
 
 // Roda UMA invocação do WF2 (o "Recurse Self" vira loop aqui). Muta session.mensagens.
-// ctx = { env, mocks, outcome, recordVisible, log }. Retorna { ended: 'confirmacao'|'transferido'|'text'|'cap'|'empty' }.
+// ctx = { env, mocks, outcome, recordVisible, log }. O runner injeta `session` no ctx ANTES
+// de despachar a tool (ver { ...ctx, session } abaixo) — adapters não precisam recebê-lo.
+// Retorna { ended: 'confirmacao'|'transferido'|'text'|'cap'|'empty' }.
+//
+// CONTRATO DE ADAPTER (adjacência tool_call↔tool_result, gotcha 23): só adapters TERMINAIS
+// (enviar_confirmacao, transferir_humano) podem chamar session.appendAssistantText, porque a
+// invocação encerra logo após e a linha de texto cai DEPOIS do par tool_call/tool_result.
+// Adapter NÃO-terminal que chamar appendAssistantText injeta uma linha assistant ENTRE o
+// tool_call e o tool_result deste turno e quebra a adjacência exigida pelo OpenAI.
 export async function runAgentInvocation({ session, hint, hoje, ctx }) {
   let iteration = 0;
   while (true) {
