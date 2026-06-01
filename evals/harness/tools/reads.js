@@ -75,5 +75,6 @@ function expandLocalSlots(slotsCfg, dataDe, dataAte, codigoAgenda, ocupados) {
       }
     }
   }
-  return out.sort((a, b) => `${a.data} ${a.hora}`.localeCompare(`${b.data} ${b.hora}`));
+  // ordena por data real (DD/MM/AAAA lexicográfico erra em range cross-month) + hora
+  return out.sort((a, b) => (dateFromBr(a.data) - dateFromBr(b.data)) || a.hora.localeCompare(b.hora));
 }
