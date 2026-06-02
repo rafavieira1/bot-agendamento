@@ -93,7 +93,15 @@ revelou fragilidade **real** do agente sob a lógica atual do WF2:
    histórico já tem `buscar_funcionario` OU `validar_hierarquia` (o passo da data só vem depois de
    um deles). Confirmado: não força mais prematuramente.
 
-Pendentes (achados reais, ainda não corrigidos — priorize via harness):
+**`matchHierarquia` casava nome com rótulo ecoado — CORRIGIDO (2026-06-02).** Cliente
+responde "Unidade Safe T" / "setor de Administração" repetindo o rótulo da pergunta do bot →
+match exato contra o nome canônico do SOC ("Safe T") falhava → `validar_hierarquia valido=false`
+→ transferência indevida no admissional. **Fix** em `src/hierarquia/match.js`: `normalizeNome`
+remove prefixo de rótulo (`unidade|filial|local|setor|departamento|area|cargo|funcao|posto` +
+conector `de/da/do`) de ambos os lados. Sync no WF4 nodes VH + CF-Build-Cadastro (`deburr`).
+Confirmado: tripla com rótulo agora casa; 5 runs sem falha por esse modo.
+
+Pendentes (achados reais, ainda não corrigidos — priorize via harness; todos LLM/prompt):
 
 2. **Detector de confirmação (WF1) é estrito demais.** Cliente confirmando com frase natural
    ("Perfeito, obrigado!", "pode marcar sim") cai em `ambiguous` → bot NÃO dispara
@@ -102,8 +110,13 @@ Pendentes (achados reais, ainda não corrigidos — priorize via harness):
 3. **Agente às vezes roda o fluxo PERIODICO para um pedido ADMISSIONAL** (chama
    `buscar_funcionario` + `tipo_compromisso:PERIODICO` em vez de `validar_hierarquia`/
    `cadastrar_funcionario`). Classificação de tipo não-determinística.
-4. **LLM às vezes chama tool prematuramente / com arg vazio** (ex: `buscar_empresa` com
-   `cnpj:""` antes de pedir o CNPJ).
+4. **LLM às vezes chama tool prematuramente / com arg vazio ou lixo** — classe mais comum do
+   resíduo (2026-06-02). Variantes vistas: `buscar_empresa cnpj:""` (pulou a pergunta do CNPJ),
+   `buscar_empresa cnpj:"medianeira"` (pôs a cidade no campo CNPJ), `validar_hierarquia` com
+   unidade/setor/cargo vazios (não perguntou hierarquia). Resultado: "não cadastrada"/`valido=false`
+   → transferência indevida (falso-negativo). Candidato de fix code-side: guard de input no
+   dispatcher (CNPJ 14 dígitos; hierarquia não-vazia) retornando erro "colete primeiro" em vez de
+   executar — mas só flipa o outcome com linha de prompt correspondente (acoplado ao prompt).
 
 Parte da variação vem do cliente LLM (fraseado), parte é fragilidade genuína do agente —
 exatamente o que o harness existe pra expor sem testar 10× na mão. Cada item acima é um fix
