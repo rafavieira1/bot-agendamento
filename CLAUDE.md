@@ -70,10 +70,15 @@ src/                  # Helpers JS testáveis (colados em Code nodes do n8n)
   llm/                # system-prompt.js (FONTE CANÔNICA do prompt WF2 — não importado, manter em sync)
   meta/               # Verify HMAC signature webhook
   avisa/              # Parser webhook + builders sendMessage da Avisa API
-tests/                # Vitest, espelha src/. 109/109 passando (pool=forks — ver vitest.config.ts)
+tests/                # Vitest, espelha src/. 142/142 passando (pool=forks — ver vitest.config.ts)
 panel/                # Painel Vite+React+TS+Tailwind pra atendimento humano (Netlify)
 supabase/migrations/  # migrations aplicadas no projeto czqellcrtzhjvdirpgxe
-evals/transcripts/    # 7 conversas (spec do fluxo; harness webhook pendente — ver evals/README.md)
+evals/                # Harness de testes conversacionais do agente (WF2 standalone) — ver evals/README.md
+  harness/            # loop do agente, cliente-LLM, tools (reads reais / writes mock), wf1-layer, recorder
+  scenarios/          # NN-nome.js — cenários declarativos (persona + fatos + espera)
+  run-eval.js         # orquestrador: node evals/run-eval.js [--only a,b] [--repeat N]
+  runs/               # transcripts md/json + summary por run (gitignored)
+  transcripts/        # 7 conversas-spec antigas (referência do fluxo)
 n8n/workflows/        # README.md com guia manual de build (n8n schema proprietário)
 docs/                 # specs, plans, contrato-integracao-outbound (deferred)
 .claude/skills/       # soc-integration.md — contexto SOC Exporta Dados + SOAP
@@ -103,7 +108,29 @@ Ngrok grátis muda a cada restart — re-registrar a URL no provider ativo quand
 | Iniciar n8n local + ngrok | `.\start-n8n.ps1` (PowerShell, na raiz) |
 | Rodar tests Vitest | `npm test` |
 | Watch tests | `npm run test:watch` |
-| Rodar eval LLM | `npm run eval` |
+| Harness de evals (todos cenários) | `npm run eval` |
+| Harness: 1+ cenários, N vezes | `node evals/run-eval.js --only <nome1,nome2> --repeat 5` |
+
+## Testar feature nova do agente (harness de evals)
+
+**Regra:** toda mudança no comportamento do agente (prompt WF2, tools, detector de confirmação, dispatcher) ou capacidade conversacional nova DEVE ser testada pelo harness **antes de commitar**. O harness roda o loop real do WF2 **standalone** (sem WhatsApp/n8n), com o cliente simulado por um 2º LLM, **reads reais** (Supabase + SOC hierarquia) e **writes mockados** (SOC cadastro/agenda + envios capturados). Detalhe completo + modelo de cenário: [evals/README.md](evals/README.md).
+
+**Passo a passo pra testar uma feature nova:**
+
+1. **Espelhar a mudança no `src/` canônico** (n8n NÃO importa `src/` — é cópia colada nos Code nodes):
+   - regras/comportamento do agente → [src/llm/system-prompt.js](src/llm/system-prompt.js) (= WF2 "Build OpenAI Request")
+   - tool nova/alterada → [src/llm/tools.js](src/llm/tools.js) (= mesmo node)
+   - detecção sim/não → [src/confirmation/detect.js](src/confirmation/detect.js) (= WF1 "Detect Confirmation")
+   - shape de retorno de tool → adapter em [evals/harness/tools/reads.js](evals/harness/tools/reads.js) ou [writes.js](evals/harness/tools/writes.js) (= branch do WF4)
+2. **Criar/editar cenário** `evals/scenarios/NN-nome.js`: `cliente` (persona + objetivo + fatos + comportamento) + `espera` (`tools_chamadas`, `tools_proibidas`, `outcome` ∈ `agendamento_efetuado|transferido|em_andamento`, `handoff_motivo`).
+3. **Rodar `node evals/run-eval.js --only <nome> --repeat 5`** — cliente-LLM é não-determinístico, então SEMPRE `--repeat` (≥5) pra separar bug real de flutuação.
+4. **Ler transcripts** em `evals/runs/<timestamp>/<cenario>_runN.md` (👤 cliente / 🤖 bot / 🔧 tool); `summary.md` dá pass/outcome/tools por run.
+5. **Iterar** prompt/código e repetir 3-4 até o cenário ficar estável (ex: 5/5).
+6. **`npm test`** (invariantes unitários espelhados em `tests/`).
+7. **Sincronizar a mudança no n8n ao vivo** (Code node correspondente, via MCP) e **confirmar que é a versão ativa** (`activeVersionId === versionId`) — o harness testa `src/`, NÃO o n8n; sem o sync a produção fica desatualizada.
+8. **Commit** curto e direto (sem co-author).
+
+**Gaps de fidelidade aceitos** (ver README): writes mockados (não escreve no SOC), roteamento de agenda hardcoded em `teste carlos`, `listar_slots` calcula local, `buscar_funcionario` só cache. Cenários usam o seed teste (EMPRESA TESTE ALFA, CPFs `57782554039`/`33333333333`, hierarquia Safe T/ADMINISTRAÇÃO/MOTORISTA). O harness flutua um pouco (~30-32/33) por não-determinismo do cliente-LLM — medir com `--repeat`, não confiar em run única.
 
 ## Supabase
 
