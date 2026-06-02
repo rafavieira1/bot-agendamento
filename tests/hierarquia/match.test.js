@@ -16,6 +16,19 @@ describe('normalizeNome', () => {
     expect(normalizeNome(null)).toBe('');
     expect(normalizeNome(undefined)).toBe('');
   });
+  it('remove rótulo que o cliente ecoa da pergunta do bot', () => {
+    expect(normalizeNome('Unidade Safe T')).toBe('safe t');
+    expect(normalizeNome('setor de Administração')).toBe('administracao');
+    expect(normalizeNome('Cargo MOTORISTA')).toBe('motorista');
+    expect(normalizeNome('departamento de Transportes')).toBe('transportes');
+  });
+  it('não remove rótulo grudado em palavra (boundary por espaço)', () => {
+    expect(normalizeNome('setorista')).toBe('setorista');
+    expect(normalizeNome('cargolândia')).toBe('cargolandia');
+  });
+  it('não esvazia quando o texto é só o rótulo', () => {
+    expect(normalizeNome('unidade')).toBe('unidade');
+  });
 });
 
 describe('matchHierarquia', () => {
@@ -40,6 +53,13 @@ describe('matchHierarquia', () => {
     const r = matchHierarquia(rows, { unidade: 'Safe T', setor: 'ADMINISTRAÇÃO', cargo: 'ANALISTA FINANCEIRO' });
     expect(r.valido).toBe(true);
     expect(r.cbo).toBe('');
+  });
+  it('casa mesmo com rótulo ecoado pelo cliente (Unidade/Setor/Cargo prefixados)', () => {
+    const r = matchHierarquia(rows, { unidade: 'Unidade Safe T', setor: 'setor ADMINISTRAÇÃO', cargo: 'cargo de Motorista' });
+    expect(r.valido).toBe(true);
+    expect(r.unidade_canonica).toBe('Safe T');
+    expect(r.setor_canonico).toBe('ADMINISTRAÇÃO');
+    expect(r.cargo_canonico).toBe('MOTORISTA');
   });
   it('rows vazio/ausente → não casa', () => {
     expect(matchHierarquia([], { unidade: 'a', setor: 'b', cargo: 'c' }).valido).toBe(false);

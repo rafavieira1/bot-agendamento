@@ -9,11 +9,19 @@ function stripAccents(str) {
     .join('');
 }
 
+// Rótulo que o cliente ecoa da pergunta do bot ("Unidade Safe T", "setor de Administração",
+// "cargo Motorista"). Quebra o match exato contra o nome canônico do SOC. Removido (de AMBOS os
+// lados — simétrico, não cria mismatch) antes de comparar. `\s+` exige espaço, então prefixo grudado
+// em palavra (ex: "setorista") não é tocado. Conector de/da/do opcional logo após o rótulo.
+const LABEL_PREFIX = /^(?:unidade|filial|local|setor|departamento|area|cargo|funcao|posto)\s+(?:(?:de|da|do|dos|das)\s+)?/;
+
 export function normalizeNome(s) {
-  return stripAccents(String(s ?? ''))
+  const base = stripAccents(String(s ?? ''))
     .trim()
     .toLowerCase()
     .replace(/\s+/g, ' ');
+  const stripped = base.replace(LABEL_PREFIX, '').trim();
+  return stripped || base; // texto era só o rótulo → mantém original, não vira ''
 }
 
 export function matchHierarquia(rows, { unidade, setor, cargo }) {
