@@ -30,7 +30,8 @@ async function loadScenarios(only) {
   for (const f of files) {
     const mod = await import(pathToFileURL(path.join(dir, f)).href);
     const s = mod.default;
-    if (!only || s.nome === only) scenarios.push(s);
+    const wanted = only ? only.split(',').map((x) => x.trim()).filter(Boolean) : null;
+    if (!wanted || wanted.includes(s.nome)) scenarios.push(s);
   }
   return scenarios;
 }
