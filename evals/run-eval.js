@@ -1,69 +1,96 @@
-import fs from 'node:fs';
+import { readdirSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { loadEnv } from './harness/env.js';
+import { createSession } from './harness/session.js';
+import { wf1Step } from './harness/wf1-layer.js';
+import { runAgentInvocation } from './harness/agent-runner.js';
+import { customerReply } from './harness/customer.js';
+import { runAssertions, deriveOutcome } from './harness/assert.js';
+import { createRecorder } from './harness/recorder.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const N8N_EVAL_URL = process.env.N8N_EVAL_URL;
+const HOJE = new Date().toISOString().slice(0, 10);
+const MAX_TURNS = 20;
 
-if (!N8N_EVAL_URL) {
-  console.error('Set N8N_EVAL_URL env var pointing to the eval webhook (ver Task 31 step 2 do plano).');
-  process.exit(1);
+function parseArgs(argv) {
+  const out = { only: null, repeat: 1, assert: true };
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--only') out.only = argv[++i];
+    else if (argv[i] === '--repeat') out.repeat = Number(argv[++i]) || 1;
+    else if (argv[i] === '--no-assert') out.assert = false;
+  }
+  return out;
 }
 
-const DIR = path.join(__dirname, 'transcripts');
-const files = fs.readdirSync(DIR).filter(f => f.endsWith('.json'));
-let pass = 0;
-let fail = 0;
+async function loadScenarios(only) {
+  const dir = path.join(__dirname, 'scenarios');
+  const files = readdirSync(dir).filter((f) => f.endsWith('.js'));
+  const scenarios = [];
+  for (const f of files) {
+    const mod = await import(pathToFileURL(path.join(dir, f)).href);
+    const s = mod.default;
+    const wanted = only ? only.split(',').map((x) => x.trim()).filter(Boolean) : null;
+    if (!wanted || wanted.includes(s.nome)) scenarios.push(s);
+  }
+  return scenarios;
+}
 
-for (const file of files) {
-  const transcript = JSON.parse(fs.readFileSync(path.join(DIR, file), 'utf8'));
-  let res;
-  try {
-    res = await fetch(N8N_EVAL_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transcript }),
-    });
-  } catch (err) {
-    console.log(`FAIL ${file}: HTTP request failed —`, err.message);
-    fail++;
-    continue;
+async function runScenario(cenario, env, recorder, run, doAssert = true) {
+  const session = createSession({ telefone: '5519999990000', status: 'coletando' });
+  const log = [];
+  const outcome = { toolsCalled: new Set(), agendamento_efetuado: false, transferido: false, handoff_motivo: null };
+  const recordVisible = (who, text) => log.push({ kind: 'visible', who, text });
+  const ctx = { env, mocks: cenario.mocks || {}, outcome, recordVisible, log: (e) => log.push(e) };
+
+  let turns = 0;
+  while (turns < MAX_TURNS) {
+    turns++;
+    // cliente fala
+    const visivel = log.filter((e) => e.kind === 'visible').map((e) => ({ who: e.who, text: e.text }));
+    const fala = await customerReply({ env, cliente: cenario.cliente, visivel, hoje: HOJE });
+    const stop = / *<STOP>/i.test(fala);
+    const falaLimpa = fala.replace(/ *<STOP>/i, '').trim();
+    if (falaLimpa) recordVisible('cliente', falaLimpa);
+
+    // camada WF1
+    const wf1 = wf1Step({ conversa: session.conversa, texto: falaLimpa });
+    if (wf1.dropped) break; // transferido: bot mudo
+    if (wf1.newStatus) session.setStatus(wf1.newStatus);
+    if (falaLimpa) session.appendUser(falaLimpa);
+
+    // invocação do agente
+    if (falaLimpa) await runAgentInvocation({ session, hint: wf1.hint, hoje: HOJE, ctx });
+
+    if (outcome.transferido) break;
+    if (stop) break;
   }
 
-  if (!res.ok) {
-    console.log(`FAIL ${file}: HTTP ${res.status}`);
-    fail++;
-    continue;
-  }
+  outcome.derived = deriveOutcome(outcome);
+  const result = (doAssert && cenario.espera) ? runAssertions(cenario, outcome) : { pass: true, falhas: [] };
+  recorder.writeScenario(cenario.nome, run, log, outcome, result, turns);
+  return result.pass;
+}
 
-  const out = await res.json();
+async function main() {
+  const opts = parseArgs(process.argv.slice(2));
+  const env = loadEnv();
+  const scenarios = await loadScenarios(opts.only);
+  const recorder = createRecorder(path.join(__dirname, 'runs'));
+  let pass = 0, fail = 0;
 
-  let ok = true;
-  for (let i = 0; i < transcript.turns.length; i++) {
-    const expected = transcript.turns[i];
-    const actual = (out.turns && out.turns[i]) || {};
-
-    if (expected.expected_tools) {
-      const missing = expected.expected_tools.filter(t => !(actual.tools_called || []).includes(t));
-      if (missing.length) {
-        ok = false;
-        console.log(`FAIL ${file} turn ${i}: missing tools`, missing);
+  for (const cenario of scenarios) {
+    for (let run = 1; run <= opts.repeat; run++) {
+      try {
+        const ok = await runScenario(cenario, env, recorder, run, opts.assert);
+        if (ok) { pass++; console.log(`PASS ${cenario.nome} (run ${run})`); }
+        else { fail++; console.log(`FAIL ${cenario.nome} (run ${run})`); }
+      } catch (e) {
+        fail++; console.log(`ERROR ${cenario.nome} (run ${run}): ${e.message}\n${e.stack || ''}`);
       }
     }
-
-    if (expected.expected_status_after && actual.status !== expected.expected_status_after) {
-      ok = false;
-      console.log(`FAIL ${file} turn ${i}: status ${actual.status} != ${expected.expected_status_after}`);
-    }
   }
-
-  if (ok) {
-    pass++;
-    console.log(`PASS ${file}`);
-  } else {
-    fail++;
-  }
+  console.log(`\n${pass}/${pass + fail} runs passando — transcripts em ${recorder.dir}`);
+  process.exit(fail > 0 ? 1 : 0);
 }
-
-console.log(`\n${pass}/${pass + fail} transcripts passing`);
-process.exit(fail > 0 ? 1 : 0);
+main().catch((e) => { console.error(e); process.exit(1); });

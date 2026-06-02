@@ -102,4 +102,23 @@ describe('parseSoapResponse', () => {
     const r = parseSoapResponse('<not valid xml');
     expect(r.kind).toBe('unknown');
   });
+
+  it('extrai codigoFuncionario do importacaoFuncionarioResponse', () => {
+    const xml = `<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+    <soap:Body>
+      <importacaoFuncionarioResponse>
+        <FuncionarioRetorno>
+          <encontrouFuncionario>true</encontrouFuncionario>
+          <incluiuFuncionario>true</incluiuFuncionario>
+          <encontrouErro>false</encontrouErro>
+          <codigoFuncionario>987654</codigoFuncionario>
+        </FuncionarioRetorno>
+      </importacaoFuncionarioResponse>
+    </soap:Body>
+  </soap:Envelope>`;
+    const r = parseSoapResponse(xml);
+    expect(r.kind).toBe('success');
+    expect(r.operation).toBe('importacaoFuncionario');
+    expect(r.codigoFuncionario).toBe('987654');
+  });
 });

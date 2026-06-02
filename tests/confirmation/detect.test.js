@@ -18,7 +18,21 @@ describe('detectConfirmation', () => {
 
   it.each([
     'talvez', 'aí me explica melhor', 'qual o valor?', 'pode ser dia 5?',
+    'pode ser mais tarde?', 'pode ser outro horário?', 'claro que não',
   ])('ambíguo: %s', (msg) => {
     expect(detectConfirmation(msg)).toBe('ambiguous');
+  });
+
+  // finding #2: confirmacao em frase natural (lider explicito + cauda) deve casar 'yes'
+  it.each([
+    'Pode ser às 07:30 então, obrigado.',
+    'Sim, confirmo para Diego Chies no dia 05/06/2026 às 07:35. Obrigado!',
+    'perfeito, obrigado!',
+    'pode marcar sim',
+    'ok pode confirmar',
+    'isso mesmo, pode agendar',
+    'pode ser esse horário mesmo',
+  ])('positivo natural: %s', (msg) => {
+    expect(detectConfirmation(msg)).toBe('yes');
   });
 });

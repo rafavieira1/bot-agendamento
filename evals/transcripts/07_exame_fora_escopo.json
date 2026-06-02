@@ -1,0 +1,15 @@
+{
+  "name": "tipo de exame fora do escopo: transferência silenciosa antes de pedir CPF",
+  "estado_inicial": {
+    "status": "coletando",
+    "dados": { "cidade": "Londrina", "cnpj": "05435277000160", "codigo_empresa": 291130 }
+  },
+  "turns": [
+    {
+      "user": "preciso de um exame de retorno ao trabalho",
+      "expected_tools": ["transferir_humano"],
+      "expected_status_after": "transferido",
+      "expected_outcome": "RETORNO fora do escopo -> transferir_humano motivo=exame_fora_escopo IMEDIATAMENTE, sem pedir CPF; mensagem padrão silenciosa (não diz que o bot não faz esse tipo)"
+    }
+  ]
+}

@@ -78,6 +78,8 @@ export function parseSoapResponse(xml) {
       atualizouFuncionario: ret.atualizouFuncionario === true || ret.atualizouFuncionario === 'true',
       encontrouErro: ret.encontrouErro === true || ret.encontrouErro === 'true',
       descricaoErro: String(ret.descricaoErro ?? ''),
+      codigoFuncionario: ret.codigoFuncionario != null && ret.codigoFuncionario !== ''
+        ? String(ret.codigoFuncionario) : undefined,
       raw: ret,
     };
   }
