@@ -103,10 +103,15 @@ Confirmado: tripla com rótulo agora casa; 5 runs sem falha por esse modo.
 
 Pendentes (achados reais, ainda não corrigidos — priorize via harness; todos LLM/prompt):
 
-2. **Detector de confirmação (WF1) é estrito demais.** Cliente confirmando com frase natural
-   ("Perfeito, obrigado!", "pode marcar sim") cai em `ambiguous` → bot NÃO dispara
-   `agendar_no_soc`, fica em `em_andamento`. Regex âncorada só casa positivos curtos exatos.
-   UX gap real em prod.
+2. **Detector de confirmação (WF1) era estrito demais — CORRIGIDO (2026-06-02).** Cliente
+   confirmando com frase natural ("Pode ser às 07:30 então, obrigado", "Sim, confirmo para
+   Fulano. Obrigado!") caía em `ambiguous` → bot não disparava `agendar_no_soc`, travava em
+   `em_andamento` pedindo "confirme com um sim". **Fix** em `src/confirmation/detect.js`: NEGATIVO
+   fica âncorado (recusa-com-pedido tipo "não pode, tem outro?" continua `ambiguous` p/ o prompt
+   oferecer próximo slot), POSITIVO afrouxado (líder explícito sim/ok/confirmo/perfeito + cauda;
+   `pode (ser|confirmar|marcar|agendar)` só sem sinal de pedir OUTRO horário/data; negação em
+   qualquer lugar bloqueia o yes). Sync no WF1 node Detect Confirmation. pede_horario_fora_array
+   voltou a 3/3.
 3. **Agente às vezes roda o fluxo PERIODICO para um pedido ADMISSIONAL** (chama
    `buscar_funcionario` + `tipo_compromisso:PERIODICO` em vez de `validar_hierarquia`/
    `cadastrar_funcionario`). Classificação de tipo não-determinística.
