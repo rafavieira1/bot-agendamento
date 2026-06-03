@@ -62,7 +62,7 @@ Ações:
 
 **Guardas:** `set_ativo(false)` e `set_role('atendente')` recusam (**409**) se o alvo for o **último admin ativo** (`select count(*) from responsaveis where role='admin' and ativo`). Senha mínima 6 chars (limite padrão do Supabase Auth).
 
-**Normalização de e-mail:** payload de `create` recebe `usuario`; backend monta `email = usuario.includes('@') ? usuario : usuario+'@safework.local'` (espelha o Login). `nome`, `role`, `password` obrigatórios; `whatsapp` opcional (E.164 sem `+`).
+**Normalização de e-mail:** o cliente sintetiza o e-mail via helper testável `usuarioToEmail` (`usuario.includes('@') ? usuario : usuario+'@safework.local'`, espelha o Login) e envia `email` já pronto; a edge function valida `email`/`password`/`nome` presentes. `nome`, `role`, `password` obrigatórios; `whatsapp` opcional (E.164 sem `+`).
 
 **Migration `<ts>_admin_rls.sql`:**
 ```sql
