@@ -1,7 +1,7 @@
 [build]
   base = "panel"
   command = "npm install && npm run build"
-  publish = "panel/dist"
+  publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
