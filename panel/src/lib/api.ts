@@ -78,7 +78,7 @@ export async function adminUsers(body: AdminAction): Promise<{ ok: boolean; data
     return { ok: false, error: msg };
   }
   if (data && (data as { ok?: boolean }).ok === false) {
-    return { ok: false, error: (data as { error?: string }).error };
+    return { ok: false, error: (data as { error?: string }).error ?? 'Erro desconhecido' };
   }
   return { ok: true, data };
 }

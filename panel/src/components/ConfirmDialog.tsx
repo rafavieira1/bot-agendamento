@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useId, type ReactNode } from 'react';
 
 type Props = {
   open: boolean;
@@ -23,6 +23,7 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: Props) {
+  const tituloId = useId();
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -39,13 +40,14 @@ export function ConfirmDialog({
       className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-ink-900/40 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
+      aria-labelledby={tituloId}
       onClick={() => !loading && onCancel()}
     >
       <div
         className="w-full max-w-sm bg-white rounded-card shadow-card p-6 fade-in"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-base font-semibold text-ink-900">{titulo}</h2>
+        <h2 id={tituloId} className="text-base font-semibold text-ink-900">{titulo}</h2>
         {mensagem && <div className="text-sm text-ink-500 mt-2 leading-relaxed">{mensagem}</div>}
         <div className="flex justify-end gap-2 mt-6">
           <button
