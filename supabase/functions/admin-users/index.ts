@@ -53,6 +53,9 @@ Deno.serve(async (req) => {
   const action = payload.action;
 
   // true se desativar/rebaixar esse responsavel deixaria zero admins ativos.
+  // NOTA: check não-atômico (TOCTOU). Aceitável neste painel de baixa concorrência —
+  // dois admins se rebaixando ao mesmo tempo poderiam furar a guarda. Não justifica
+  // um redesign transacional aqui.
   async function isLastAdmin(targetRespId: string): Promise<boolean> {
     const { data } = await admin
       .from('responsaveis')
@@ -68,7 +71,8 @@ Deno.serve(async (req) => {
       const nome = payload.nome as string;
       const email = payload.email as string;
       const password = payload.password as string;
-      const whatsapp = (payload.whatsapp as string | null) ?? null;
+      const whatsappRaw = (payload.whatsapp as string | null) ?? null;
+      const whatsapp = whatsappRaw ? (String(whatsappRaw).replace(/\D/g, '') || null) : null; // E.164 sem '+'
       const role = payload.role as string;
       if (!nome || !email || !password) return json({ error: 'campos_obrigatorios' }, 400);
       if (String(password).length < 6) return json({ error: 'senha_curta' }, 400);
@@ -87,7 +91,11 @@ Deno.serve(async (req) => {
         .select()
         .single();
       if (iErr) {
-        await admin.auth.admin.deleteUser(created.user.id); // rollback do auth user
+        const { error: delErr } = await admin.auth.admin.deleteUser(created.user.id); // rollback do auth user
+        if (delErr) {
+          // rollback falhou: sobrou um auth user órfão sem responsaveis. Sinaliza pro operador limpar.
+          return json({ error: 'rollback_falhou', detail: iErr.message, auth_user_id: created.user.id }, 500);
+        }
         return json({ error: iErr.message }, 400);
       }
       return json({ ok: true, responsavel: resp });
