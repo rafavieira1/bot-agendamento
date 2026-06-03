@@ -23,7 +23,7 @@ type Props = {
 };
 
 export function Sidebar({ responsavel, onLogout, mobileOpen = false, onMobileClose }: Props) {
-  const isAdmin = responsavel?.role === 'admin';
+  const isAdmin = responsavel?.role === 'admin' && !!responsavel?.ativo;
   const items = ITEMS.filter((i) => !i.adminOnly || isAdmin);
   const location = useLocation();
 

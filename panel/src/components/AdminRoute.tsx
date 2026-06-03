@@ -12,6 +12,6 @@ export function AdminRoute({ children }: { children: ReactNode }) {
     );
   }
   if (!session) return <Navigate to="/login" replace />;
-  if (responsavel?.role !== 'admin') return <Navigate to="/conversas" replace />;
+  if (responsavel?.role !== 'admin' || !responsavel?.ativo) return <Navigate to="/conversas" replace />;
   return <>{children}</>;
 }
