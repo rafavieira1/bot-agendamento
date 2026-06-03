@@ -25,7 +25,7 @@ export async function sendMessage({ conversa_id, texto }: SendMessageInput): Pro
   try {
     const res = await fetch(WEBHOOK_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       body: JSON.stringify({ conversa_id, texto, supabase_jwt: jwt }),
     });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
