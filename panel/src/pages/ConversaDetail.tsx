@@ -9,7 +9,7 @@ import { encerrarConversa } from '../lib/api';
 export function ConversaDetail() {
   const { id } = useParams<{ id: string }>();
   const [conversa, setConversa] = useState<Conversa | null>(null);
-  const { mensagens, refresh } = useMensagens(id);
+  const { mensagens, refresh } = useMensagens(id, conversa?.atendimento_iniciado_em ?? null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

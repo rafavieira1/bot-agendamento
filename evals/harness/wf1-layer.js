@@ -7,6 +7,10 @@ export const HINT_NO = 'Cliente recusou a confirmacao. Pergunte o que precisa se
 // Replica a camada WF1 entre turnos. Retorna o que injetar na próxima invocação do WF2.
 export function wf1Step({ conversa, texto }) {
   if (conversa.status === 'transferido') return { dropped: true };
+  // estado terminal -> próxima mensagem inicia novo atendimento (reabre)
+  if (conversa.status === 'encerrado' || conversa.status === 'concluido') {
+    return { dropped: false, hint: '', newStatus: 'coletando', reopened: true };
+  }
   if (conversa.status !== 'aguardando_confirmacao') return { dropped: false, hint: '', newStatus: null };
   const det = detectConfirmation(texto);
   if (det === 'yes') return { dropped: false, hint: HINT_YES, newStatus: 'agendando' };

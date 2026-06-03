@@ -33,18 +33,25 @@ export function useConversas() {
   return { conversas, loading, refresh };
 }
 
-export function useMensagens(conversaId: string | undefined) {
+export async function fetchMensagens(conversaId: string, anchor: string | null) {
+  let q = supabase.from('mensagens').select('*').eq('conversa_id', conversaId);
+  if (anchor) q = q.gte('created_at', anchor);
+  const { data, error } = await q.order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data || []) as Mensagem[];
+}
+
+export function useMensagens(conversaId: string | undefined, anchor: string | null = null) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function refresh() {
     if (!conversaId) return;
-    const { data, error } = await supabase
-      .from('mensagens')
-      .select('*')
-      .eq('conversa_id', conversaId)
-      .order('created_at', { ascending: true });
-    if (!error) setMensagens((data || []) as Mensagem[]);
+    try {
+      setMensagens(await fetchMensagens(conversaId, anchor));
+    } catch {
+      /* ignora; mantém estado anterior */
+    }
     setLoading(false);
   }
 
@@ -67,7 +74,7 @@ export function useMensagens(conversaId: string | undefined) {
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [conversaId]);
+  }, [conversaId, anchor]);
 
   return { mensagens, loading, refresh };
 }

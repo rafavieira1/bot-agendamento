@@ -136,8 +136,8 @@ Ngrok grátis muda a cada restart — re-registrar a URL no provider ativo quand
 
 - Project ref: `czqellcrtzhjvdirpgxe` (sa-east-1)
 - URL: `https://czqellcrtzhjvdirpgxe.supabase.co`
-- 21 migrations aplicadas (incluindo painel responsáveis + constraints + RLS + realtime + role)
-- Tabelas: `conversas` (+ `responsavel_id` + status agora aceita `transferido`/`encerrado`), `mensagens` (+ `tool_call_id`, papel agora aceita `humano`), `mensagens_recebidas`, `empresas_cache`, `funcionarios_cache` (+ `cnpj_empresa`), `agendas_config` (cidade/cnpj_empresa/fallback + `responsavel_id`), `slots_config`, `agendamentos`, `notificacoes_pendentes` (tipo agora aceita `transferencia`), `notificacoes_outbound`, **`responsaveis`** (auth_user_id → nome/email/whatsapp/ativo)
+- 22 migrations aplicadas (incluindo painel responsáveis + constraints + RLS + realtime + role + `atendimento_iniciado_em`)
+- Tabelas: `conversas` (+ `responsavel_id` + `atendimento_iniciado_em` + status agora aceita `transferido`/`encerrado`), `mensagens` (+ `tool_call_id`, papel agora aceita `humano`), `mensagens_recebidas`, `empresas_cache`, `funcionarios_cache` (+ `cnpj_empresa`), `agendas_config` (cidade/cnpj_empresa/fallback + `responsavel_id`), `slots_config`, `agendamentos`, `notificacoes_pendentes` (tipo agora aceita `transferencia`), `notificacoes_outbound`, **`responsaveis`** (auth_user_id → nome/email/whatsapp/ativo)
 - Seed teste aplicado: empresa `EMPRESA TESTE ALFA` (CNPJ `05435277000160`, codigo `291130`) + agenda `teste carlos` #1463919 (PERIODICO + DEMISSIONAL, `fallback=true`) + 528 slots (5min, seg/ter/qui/sex 7:30-11:00; qua 7:30-11:00 + 13:30-17:30)
 - Views: `v_conversas_diarias`, `v_erros_recentes`, `v_notificacoes_abertas`
 - Function: `anonimizar_conversas_antigas()` (RPC, chamada pelo WF5 cron)
@@ -188,7 +188,7 @@ Ngrok grátis muda a cada restart — re-registrar a URL no provider ativo quand
 
 17. **WF2 mensagens duplicadas:** se o pipeline gravar a msg assistant ANTES do `Has Tool Call?` E também depois (via `Send Final Text` que chama WF4 `enviar_mensagem`), cada resposta texto fica duplicada. Solução validada: mover `Save Assistant Msg` pra dentro do branch tool-call apenas. Texto puro grava só via WF4 EM (`papel=assistant`).
 
-18. **Painel atendimento humano** (`panel/`, Vite+React, deploy Netlify): conecta no Supabase com anon key; RLS filtra `conversas`/`mensagens` por `responsavel_id`. Envios humanos vão pra `/webhook/painel-send-<PAINEL_SECRET>` (WF6, ativo) que valida JWT e dispara Avisa/Meta. Mensagens do painel ficam com `papel='humano'`. Botão "Encerrar" muda `conversas.status='encerrado'`; bot não responde mais. Realtime via `supabase.channel` em `mensagens` (publication `supabase_realtime`).
+18. **Painel atendimento humano** (`panel/`, Vite+React, deploy Netlify): conecta no Supabase com anon key; RLS filtra `conversas`/`mensagens` por `responsavel_id`. Envios humanos vão pra `/webhook/painel-send-<PAINEL_SECRET>` (WF6, ativo) que valida JWT e dispara Avisa/Meta. Mensagens do painel ficam com `papel='humano'`. Botão "Encerrar" muda `conversas.status='encerrado'` (encerra a sessão; bot fica mudo até a próxima msg do cliente, que reabre como novo atendimento — ver gotcha 27). Painel mostra **só o atendimento atual**: `useMensagens` filtra `created_at >= conversas.atendimento_iniciado_em`. Realtime via `supabase.channel` em `mensagens` (publication `supabase_realtime`).
 
     **Hook `useMensagens`** assina INSERT em `mensagens` E UPDATE em `conversas` (filter por id) — sem o segundo, initial fetch acontecia antes de `responsavel_id` ser setado pelo WF4 TH e RLS bloqueava o histórico.
 
@@ -211,6 +211,8 @@ Ngrok grátis muda a cada restart — re-registrar a URL no provider ativo quand
 25. **Vitest 4 + Windows quebra no pool default `threads`** ("Cannot read properties of undefined (reading 'config')" ao rodar múltiplos arquivos). `vitest.config.ts` fixa `pool: 'forks'`. Arquivo único via `npx vitest run <file>` funciona em threads, mas a suite inteira não.
 
 26. **Env do exporta hierarquia:** `SOC_EXPORTA_HIERARQUIA_CODIGO=191874` + `SOC_EXPORTA_HIERARQUIA_CHAVE` no `.env`. n8n só lê novas env vars após **restart** (`start-n8n.ps1`). Se VH/CF retornarem hierarquia vazia, conferir se o n8n foi reiniciado depois de editar o `.env`.
+
+27. **Atendimento por sessão (painel mostra só o atual).** Coluna `conversas.atendimento_iniciado_em timestamptz` marca o início da sessão corrente; painel (`useMensagens`) filtra `mensagens.created_at >= atendimento_iniciado_em` (fallback: null → mostra tudo). **WF1 `Route by session`** (Switch que substituiu o IF `Status transferido?`, logo após `Pick Conversa`): `transferido` → `TR - Insert User Mensagem` (salva msg do cliente `papel=user`, bot **mudo**, sem LLM) → fim; `encerrado`/`concluido` → `Reopen Conversa` (status=`coletando` + `atendimento_iniciado_em=now()`) → `Insert User Mensagem` → fluxo normal (nova sessão, bot responde fresco); demais status → `Insert User Mensagem` direto (output fallback `extra`). **WF4 AG** passou a setar `conversas.status='concluido'` após agendar (caminho sucesso novo `AG - Insert` + idempotente `AG - Cached?` true) — é o gatilho de "sessão fechada"; antes o AG não tocava status. Espelho no harness: `evals/harness/wf1-layer.js` reabre em `encerrado`/`concluido`. Spec/plano: `docs/superpowers/{specs,plans}/2026-06-03-painel-atendimento-por-sessao*`.
 
 ## Convenções
 

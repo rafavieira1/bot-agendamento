@@ -28,6 +28,7 @@ export type Conversa = {
   responsavel_id: string | null;
   ultima_atividade: string | null;
   created_at: string;
+  atendimento_iniciado_em: string | null;
 };
 
 export type Responsavel = {
