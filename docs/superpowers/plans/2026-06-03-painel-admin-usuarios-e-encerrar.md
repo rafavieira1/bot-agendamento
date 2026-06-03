@@ -468,6 +468,9 @@ git commit -m "feat(panel): helpers admin (usuarioToEmail, validateNovoUsuario) 
 Acrescentar ao final de `panel/src/lib/api.ts` (após `encerrarConversa`):
 ```ts
 export async function reabrirConversa(conversa_id: string): Promise<{ ok: boolean; error?: string }> {
+  // status='transferido' (NÃO 'coletando'): o WF6 (painel-send) só envia quando
+  // conversa.status === 'transferido' (Verify JWT + Authorize rejeita os demais).
+  // Reabrir pra qualquer outro status quebraria o envio do humano.
   const { error } = await supabase
     .from('conversas')
     .update({ status: 'transferido' })
