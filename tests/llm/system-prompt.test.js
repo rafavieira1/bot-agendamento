@@ -43,4 +43,13 @@ describe('buildSystemPrompt', () => {
     expect(idxCidade).toBeGreaterThan(-1);
     expect(idxCnpj).toBeGreaterThan(idxCidade);
   });
+
+  it('exige confirmar setor/cargo do SOC antes da data (periodico/demissional)', () => {
+    const p = buildSystemPrompt({ status: 'coletando', dados: {} });
+    expect(p).toContain('dados_funcionario_divergentes');
+    const idxConfirma = p.indexOf('setor');
+    const idxData = p.indexOf('peça a data preferida');
+    expect(idxConfirma).toBeGreaterThan(-1);
+    expect(idxData).toBeGreaterThan(-1);
+  });
 });

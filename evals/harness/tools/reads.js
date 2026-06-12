@@ -1,5 +1,6 @@
 import { sb } from '../supabase.js';
 import { matchHierarquia } from '../../../src/hierarquia/match.js';
+import { parseCadastroFuncionario } from '../../../src/funcionario/parse-cadastro.js';
 
 const TEST_UNIDADE = 'teste carlos'; // LS/AG estão hardcoded nessa unidade (verificado 2026-06-01)
 
@@ -14,19 +15,33 @@ export async function buscar_empresa(args, ctx) {
   return { ok: false, erro: 'empresa_nao_cadastrada' };
 }
 
-// buscar_funcionario — read real do cache. Shape: BF - Return Cache / Not Found.
-// FIDELITY GAP (documentado na spec): NÃO replica o probe SOC no cache-miss. Cenários usam
-// CPFs seedados (cache hit) ou CPFs claramente falsos (not found) — o outcome bate.
+// buscar_funcionario — read real do cache + Exporta Dados 192399 (setor/cargo, latin1 — gotcha 20).
 export async function buscar_funcionario(args, ctx) {
   const cpf = String(args.cpf || '').replace(/\D/g, '');
   const rows = await sb(ctx.env, `funcionarios_cache?cpf=eq.${cpf}&codigo_empresa=eq.${args.codigo_empresa}&limit=1`);
   const row = rows[0];
-  if (row && row.cpf) {
-    const out = { ok: true, ativo: row.ativo, from_cache: true };
-    if (row.codigo_funcionario != null) out.codigo_funcionario = row.codigo_funcionario;
-    return out;
-  }
-  return { ok: false, erro: 'nao_encontrado' };
+  if (!row || !row.cpf) return { ok: false, erro: 'nao_encontrado' };
+  const out = { ok: true, ativo: row.ativo, from_cache: true };
+  if (row.codigo_funcionario != null) out.codigo_funcionario = row.codigo_funcionario;
+  const cad = await fetchCadastroSetorCargo(ctx.env, args.codigo_empresa, cpf);
+  if (cad.encontrado) { out.nome = cad.nome; out.setor = cad.setor; out.cargo = cad.cargo; }
+  return out;
+}
+
+async function fetchCadastroSetorCargo(env, codigoEmpresa, cpf) {
+  // empresaTrabalho = codigo da empresa CLIENTE é OBRIGATÓRIO no 192399 — sem ele o filtro retorna 0 rows
+  // (validado ao vivo 2026-06-12). Diferente do export de hierarquia, que usa só `empresa`.
+  const parametro = JSON.stringify({
+    empresa: String(codigoEmpresa), empresaTrabalho: String(codigoEmpresa), codigo: env.SOC_EXPORTA_FUNCIONARIO_CODIGO,
+    chave: env.SOC_EXPORTA_FUNCIONARIO_CHAVE, tipoSaida: 'json', cpf, parametroData: '0', dataInicio: '', dataFim: '',
+  });
+  const url = 'https://ws1.soc.com.br/WebSoc/exportadados?parametro=' + encodeURIComponent(parametro);
+  let rows = [];
+  try {
+    const r = await fetch(url);
+    rows = JSON.parse(Buffer.from(await r.arrayBuffer()).toString('latin1'));
+  } catch { rows = []; }
+  return parseCadastroFuncionario(rows, cpf);
 }
 
 // validar_hierarquia — read real do SOC Exporta Dados 191874 (latin1 — gotcha 20). Shape VH.
