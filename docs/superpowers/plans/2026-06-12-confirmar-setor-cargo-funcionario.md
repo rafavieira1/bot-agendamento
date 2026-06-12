@@ -144,8 +144,10 @@ export async function buscar_funcionario(args, ctx) {
 }
 
 async function fetchCadastroSetorCargo(env, codigoEmpresa, cpf) {
+  // empresaTrabalho = codigo da empresa CLIENTE é OBRIGATÓRIO no 192399 — sem ele o filtro retorna 0 rows
+  // (validado ao vivo 2026-06-12). Diferente do export de hierarquia, que usa só `empresa`.
   const parametro = JSON.stringify({
-    empresa: String(codigoEmpresa), codigo: env.SOC_EXPORTA_FUNCIONARIO_CODIGO,
+    empresa: String(codigoEmpresa), empresaTrabalho: String(codigoEmpresa), codigo: env.SOC_EXPORTA_FUNCIONARIO_CODIGO,
     chave: env.SOC_EXPORTA_FUNCIONARIO_CHAVE, tipoSaida: 'json', cpf, parametroData: '0', dataInicio: '', dataFim: '',
   });
   const url = 'https://ws1.soc.com.br/WebSoc/exportadados?parametro=' + encodeURIComponent(parametro);
@@ -397,15 +399,43 @@ SOC_EXPORTA_FUNCIONARIO_CHAVE=<chave do 192399>
 
 Reiniciar n8n (`.\start-n8n.ps1`) — gotcha 26: n8n só lê env nova após restart.
 
-- [ ] **Step 2: WF4 (`00kC3KB8q19KgCLp`) — branch BF.** No Code node que monta o retorno do `buscar_funcionario`, após resolver o funcionário, adicionar GET ao 192399 via `require('https')` (sandbox bloqueia fetch — gotcha 8), decodificar latin1 (gotcha 20) e colar a função `parseCadastroFuncionario` (Task 1) inline. Mesclar `nome/setor/cargo` no objeto de retorno da tool. Reusar o padrão do node `VH - Validar Hierarquia` (mesmo endpoint exportadados, mesmo latin1) trocando `codigo`/`chave` para os do 192399 e passando `cpf` no parâmetro.
+- [ ] **Step 2: WF4 (`00kC3KB8q19KgCLp`) — branch BF (DOIS nós de retorno).** O probe SOAP atual (`BF - Build Probe`/`BF - Call SOAP`) é um `importacaoFuncionario` com `criar/atualizar=false` que só seta `encontrouFuncionario` — **não traz setor/cargo**. Há DOIS nós Code que produzem o retorno "encontrado": `BF - Return Cache` (caminho cache-hit) e `BF - Return Found` (caminho probe). Em AMBOS, antes do `return`, fazer GET ao Exporta Dados 192399 via `require('https')` (sandbox bloqueia fetch — gotcha 8), decodificar latin1 (gotcha 20) e mesclar `nome/setor/cargo` no objeto de saída. Template idêntico ao nó `VH - Validar Hierarquia` (mesmo `host:'ws1.soc.com.br'`, `Buffer...toString('latin1')`), trocando `codigo`/`chave` para `$env.SOC_EXPORTA_FUNCIONARIO_CODIGO`/`_CHAVE` e adicionando `cpf` no `parametro`. Colar inline a lógica do `parseCadastroFuncionario` (Task 1). Fontes do cpf/codigo_empresa em cada nó:
+  - `BF - Return Cache`: lê do próprio input → `const j = $input.first().json; const cpf = j.cpf; const codigo_empresa = j.codigo_empresa;` (já presentes — vêm do `BF - Check TTL`).
+  - `BF - Return Found`: lê via `$('BF - Normalize CPF').first().json.cpf` e `.codigo_empresa` (mesmo padrão do `BF - Upsert Cache`).
+  - `BF - Return Not Found` NÃO muda (funcionário ausente → `nao_encontrado`, motivo `funcionario_nao_encontrado`).
 
-- [ ] **Step 3: WF4 — branch TH.** No node que define o texto enviado ao cliente (`TH - HTTP Send` / resolução de texto), tornar o texto condicional ao `motivo`: quando `motivo === 'dados_funcionario_divergentes'`, usar:
+  Modelo do bloco a colar em cada nó de retorno (adaptando a origem de cpf/codigo_empresa):
 
+```javascript
+const https = require('https');
+function stripDigits(v){return String(v==null?'':v).replace(/\D/g,'');}
+function parseCadastro(rows,cpf){const t=stripDigits(cpf);const list=Array.isArray(rows)?rows:[];const ms=list.filter(r=>stripDigits(r.CPFFUNCIONARIO)===t);if(!ms.length)return{encontrado:false};const row=ms.find(r=>/ativo/i.test(String(r.SITUACAO||'')))||ms[0];const setor=String(row.NOMESETOR||'').trim();const cargo=String(row.NOMECARGO||'').trim();if(!setor||!cargo)return{encontrado:false};return{encontrado:true,nome:String(row.NOME||'').trim(),setor,cargo};}
+// empresaTrabalho = codigo empresa CLIENTE é OBRIGATÓRIO no 192399 (sem ele → 0 rows; validado ao vivo).
+const parametro = JSON.stringify({ empresa:String(codigo_empresa), empresaTrabalho:String(codigo_empresa), codigo:$env.SOC_EXPORTA_FUNCIONARIO_CODIGO, chave:$env.SOC_EXPORTA_FUNCIONARIO_CHAVE, tipoSaida:'json', cpf:stripDigits(cpf), parametroData:'0', dataInicio:'', dataFim:'' });
+const path = '/WebSoc/exportadados?parametro=' + encodeURIComponent(parametro);
+let rows = [];
+try { rows = await new Promise((resolve,reject)=>{const req=https.request({host:'ws1.soc.com.br',path,method:'GET'},(res)=>{const chx=[];res.on('data',c=>chx.push(c));res.on('end',()=>{try{resolve(JSON.parse(Buffer.concat(chx).toString('latin1')));}catch(e){reject(e);}});});req.on('error',reject);req.end();}); } catch(e) { rows=[]; }
+const cad = parseCadastro(rows, cpf);
+if (cad.encontrado) { out.nome = cad.nome; out.setor = cad.setor; out.cargo = cad.cargo; }
 ```
-Vou te passar para a equipe ajustar o cadastro desse funcionario. Em instantes alguem do time continua daqui.
+
+  (`out` = o objeto de retorno já montado no nó; em `BF - Return Found` declarar `const out = { ok:true, ativo:true, from_cache:false };` e os `const cpf/codigo_empresa` via `$('BF - Normalize CPF')`.)
+
+- [ ] **Step 3: WF4 — branch TH (texto por motivo, DOIS lugares hardcoded).** O texto ao cliente está hardcoded em DOIS nós: `TH - HTTP Send` (jsonBody) e `TH - Insert mensagem` (conteudo) — ambos com `'Esse tipo de atendimento sera feito por um colega...'`. Para o texto ficar motivo-aware sem divergir:
+  1. Em `TH - Resolve Responsavel`, adicionar ao objeto de retorno um campo `texto_cliente` derivado do motivo:
+
+```javascript
+const _motivo = args.motivo || 'outro';
+const texto_cliente = _motivo === 'dados_funcionario_divergentes'
+  ? 'Vou te passar para a equipe ajustar o cadastro desse funcionario. Em instantes alguem do time continua daqui.'
+  : 'Esse tipo de atendimento sera feito por um colega da equipe Safe. Em instantes alguem do time vai continuar daqui. Obrigado!';
 ```
 
-Demais motivos mantêm o texto padrão atual. Não alterar a cascata de resolução de responsável nem as notificações.
+   (incluir `texto_cliente` no `return [{ json: { ...inp, ..., texto_cliente } }]`.)
+  2. Em `TH - HTTP Send` (jsonBody), trocar a string literal das DUAS branches (avisa `message:` e meta `text.body:`) por `$('TH - Resolve Responsavel').first().json.texto_cliente`.
+  3. Em `TH - Insert mensagem`, trocar o `conteudo` literal por `={{ $('TH - Resolve Responsavel').first().json.texto_cliente }}`.
+
+  Não alterar a cascata de resolução de responsável (cnpj_empresa → cidade → fallback) nem as notificações P0/WhatsApp.
 
 - [ ] **Step 4: WF2 (`cdQwn4joLcuWlTJQ`) — Build OpenAI Request.** Colar a versão nova do system prompt (Task 3) e, se mudou, dos schemas de tools (Task 4) — versão ASCII-fada (sem acentos), mantendo a semântica. Conferir que `dados_funcionario_divergentes` está no prompt e na doc do `transferir_humano`.
 

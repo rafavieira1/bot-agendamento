@@ -27,6 +27,11 @@ no retorno nem na `funcionarios_cache`.
 nova, sem round-trip extra do LLM. Após resolver o funcionário, a BF faz um GET no Exporta
 Dados de funcionários e devolve `setor`/`cargo` no retorno da tool.
 
+**Atenção (estado real do WF4):** a BF tem DOIS nós Code de retorno "encontrado" — `BF - Return Cache`
+(caminho cache-hit, o que o seed usa) e `BF - Return Found` (caminho probe SOAP no cache-miss). O
+GET ao 192399 entra nos DOIS. O probe SOAP atual (`importacaoFuncionario` com `criar/atualizar=false`)
+só seta `encontrouFuncionario` — NÃO traz setor/cargo, por isso o 192399 é necessário.
+
 Rejeitado: tool nova `consultar_dados_funcionario` (mais idas-e-voltas do LLM, mais chance de
 pular o passo).
 
@@ -35,10 +40,14 @@ pular o passo).
 - **Código:** `192399` (não secreto) → `SOC_EXPORTA_FUNCIONARIO_CODIGO`
 - **Chave:** → `SOC_EXPORTA_FUNCIONARIO_CHAVE` (segredo, só no `.env`)
 - **Endpoint:** `https://ws1.soc.com.br/WebSoc/exportadados?parametro=<json>`
-- **Parâmetro:** `{empresa, codigo, chave, tipoSaida:'json', cpf, parametroData:'0', dataInicio:'', dataFim:''}`
-  - `empresa` = **código da empresa CLIENTE** (`codigo_empresa` resolvido pelo `buscar_empresa`),
-    NÃO a empresa principal — mesma regra do export de hierarquia (gotcha 20 / soc-integration).
+- **Parâmetro:** `{empresa, empresaTrabalho, codigo, chave, tipoSaida:'json', cpf, parametroData:'0', dataInicio:'', dataFim:''}`
+  - `empresaTrabalho` = **código da empresa CLIENTE** (`codigo_empresa`) — **OBRIGATÓRIO**. Validado ao vivo
+    (2026-06-12): sem `empresaTrabalho` o filtro retorna **0 rows**, mesmo com `empresa` setado. Diferente
+    do export de hierarquia (191874), que usa só `empresa`.
+  - `empresa` = `codigo_empresa` (cliente) também funciona; usar o mesmo valor de `empresaTrabalho`.
   - `cpf` = só dígitos do CPF do funcionário.
+  - Validação ao vivo do CPF seedado 57782554039 (empresa 291130): retorna 1 linha com
+    `NOMESETOR="ADMINISTRAÇÃO"`, `NOMECARGO="MOTORISTA"`, `SITUACAO="Ativo"`.
 - **Resposta é ISO-8859-1 (latin1)** — decodificar com `Buffer...toString('latin1')` antes do
   `JSON.parse` (gotcha 20), senão acentos de NOMESETOR (ex: "ADMINISTRAÇÃO") quebram.
 - **Campos usados do retorno:** `NOME`, `NOMESETOR`, `NOMECARGO`. (Disponíveis também:
@@ -68,13 +77,14 @@ pular o passo).
 
 ## Mensagem de transferência por divergência (decisão: handoff com texto por motivo)
 
-Novo motivo `dados_funcionario_divergentes`. O node TH do WF4 passa a escolher o texto de
-handoff pelo motivo: para esse motivo, texto explícito de divergência, ex.:
+Novo motivo `dados_funcionario_divergentes`. O texto ao cliente está hardcoded em DOIS nós do WF4
+(`TH - HTTP Send` jsonBody + `TH - Insert mensagem` conteudo). Para ficar motivo-aware sem divergir:
+computar `texto_cliente` em `TH - Resolve Responsavel` (por motivo) e referenciá-lo nos dois nós.
+Para `dados_funcionario_divergentes`, texto explícito de divergência:
 
 > "Vou te passar para a equipe ajustar o cadastro desse funcionário. Em instantes alguém do time continua daqui."
 
-Demais motivos mantêm o texto padrão atual (`TEXTO_TRANSFERENCIA`). Resolução de responsável e
-notificação P0/WhatsApp inalteradas.
+Demais motivos mantêm o texto padrão atual. Resolução de responsável e notificação P0/WhatsApp inalteradas.
 
 Rejeitado: `enviar_mensagem` antes de `transferir_humano` (cliente receberia duas mensagens
 seguidas — divergência + handoff genérico — redundante).
