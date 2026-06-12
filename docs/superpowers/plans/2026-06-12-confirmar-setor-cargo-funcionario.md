@@ -409,7 +409,7 @@ Reiniciar n8n (`.\start-n8n.ps1`) — gotcha 26: n8n só lê env nova após rest
 ```javascript
 const https = require('https');
 function stripDigits(v){return String(v==null?'':v).replace(/\D/g,'');}
-function parseCadastro(rows,cpf){const t=stripDigits(cpf);const list=Array.isArray(rows)?rows:[];const ms=list.filter(r=>stripDigits(r.CPFFUNCIONARIO)===t);if(!ms.length)return{encontrado:false};const row=ms.find(r=>/ativo/i.test(String(r.SITUACAO||'')))||ms[0];const setor=String(row.NOMESETOR||'').trim();const cargo=String(row.NOMECARGO||'').trim();if(!setor||!cargo)return{encontrado:false};return{encontrado:true,nome:String(row.NOME||'').trim(),setor,cargo};}
+function parseCadastro(rows,cpf){const t=stripDigits(cpf);const list=Array.isArray(rows)?rows:[];const ms=list.filter(r=>stripDigits(r.CPFFUNCIONARIO)===t);if(!ms.length)return{encontrado:false};const row=ms.find(r=>/^ativo$/i.test(String(r.SITUACAO||'').trim()))||ms[0];const setor=String(row.NOMESETOR||'').trim();const cargo=String(row.NOMECARGO||'').trim();if(!setor||!cargo)return{encontrado:false};return{encontrado:true,nome:String(row.NOME||'').trim(),setor,cargo};}
 // empresaTrabalho = codigo empresa CLIENTE é OBRIGATÓRIO no 192399 (sem ele → 0 rows; validado ao vivo).
 const parametro = JSON.stringify({ empresa:String(codigo_empresa), empresaTrabalho:String(codigo_empresa), codigo:$env.SOC_EXPORTA_FUNCIONARIO_CODIGO, chave:$env.SOC_EXPORTA_FUNCIONARIO_CHAVE, tipoSaida:'json', cpf:stripDigits(cpf), parametroData:'0', dataInicio:'', dataFim:'' });
 const path = '/WebSoc/exportadados?parametro=' + encodeURIComponent(parametro);
