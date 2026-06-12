@@ -20,4 +20,8 @@ describe('tools (schemas OpenAI, espelho do WF2)', () => {
     const ls = tools.find(t => t.function.name === 'listar_slots').function.parameters.required;
     expect(ls).toEqual(expect.arrayContaining(['codigo_empresa','cpf_funcionario','cidade','tipo_compromisso','data_de','data_ate']));
   });
+  it('transferir_humano documenta o motivo dados_funcionario_divergentes', () => {
+    const th = tools.find(t => t.function.name === 'transferir_humano');
+    expect(th.function.parameters.properties.motivo.description).toContain('dados_funcionario_divergentes');
+  });
 });
